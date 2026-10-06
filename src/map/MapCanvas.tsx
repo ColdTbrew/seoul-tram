@@ -130,15 +130,17 @@ export function MapCanvas(props: Props) {
     const win = window as unknown as { __seoulMap?: MLMap };
     win.__seoulMap = map; // E2E 검증 스크립트용 훅 — 언마운트 때 지운다
 
-    // 스타일 로딩은 비동기 — 완료 직후와 유예 뒤에 한 번 더 그리면 레이어 누락이 없다
+    // 스타일 로딩은 비동기(테마 전환 재로딩 포함, 오프라인에선 타일 실패로 더 느려짐) —
+    // 여러 지점에서 재시도 페인트: styledata 직후 + 지연 재시도. 가드 없는 페인트는 스타일 준비 전엔 skip 된다.
     const repaintSoon = () => {
-      window.setTimeout(() => repaintRef.current(), 200);
-      window.setTimeout(() => repaintRef.current(), 900);
+      for (const d of [200, 900, 2600, 4200]) window.setTimeout(() => repaintRef.current(), d);
     };
-    map.once("load", repaintSoon);
-    // 테마 전환의 setStyle 후에도 styledata 마지막 발화(=준비 완료)에서 반드시 재構築한다 (타이밍 구멍 메움)
+    map.on("load", repaintSoon); // 최초 로딩 + setStyle 재로딩마다 발화
+
+    // 스타일 재로딩 중 styledata가 뜨면: 준비 완료 시 즉시, 아직이면 1.5초 뒤 재시도 (테마 전환 타이밍 구멍 차단)
     const onStyle = () => {
       if (map.isStyleLoaded()) repaintRef.current();
+      else window.setTimeout(() => repaintRef.current(), 1500);
     };
     map.on("styledata", onStyle);
 
@@ -210,8 +212,8 @@ export function MapCanvas(props: Props) {
       return; // 최초 생성은 현재 테마로 됐고, load 시점에 repaintSoon이 그림
     }
     map.setStyle(basemapUrl(props.resolved, false));
-    const t1 = window.setTimeout(() => repaintRef.current(), 450);
-    const t2 = window.setTimeout(() => repaintRef.current(), 1600);
+    const t1 = window.setTimeout(() => repaintRef.current(), 600);
+    const t2 = window.setTimeout(() => repaintRef.current(), 3000);
     return () => {
       window.clearTimeout(t1);
       window.clearTimeout(t2);
@@ -240,7 +242,7 @@ export function MapCanvas(props: Props) {
 
   return (
     <div className="relative h-full w-full overflow-hidden">
-      <div ref={containerRef} className="absolute inset-0" />
+      <div ref={containerRef} style={{ position: "absolute", inset: 0 }} />
       {tooltip && (
         <div
           className="pointer-events-none absolute z-10 rounded-md border border-border bg-popover px-2 py-1 text-xs whitespace-nowrap text-popover-foreground shadow-sm"

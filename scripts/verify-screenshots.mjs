@@ -69,12 +69,17 @@ const DIAG_FN = () => {
   const bad = coords.filter((c) => !(c[0] > 126.2 && c[0] < 127.6 && c[1] > 37.2 && c[1] < 38.0)).length;
   return {
     present,
+    contH: map.getContainer().clientHeight,
     layerCoordsSampled: coords.length,
     coordsOutOfWorkd: bad,
     qsf: { iso: qsf("iso-fill"), lines: qsf("lines"), stations: qsf("stations") },
     qrf: { isoFill: qv("iso-fill"), isoLine: qv("iso-line"), lines: qv("lines"), stations: qv("stations") },
     qb: { isoFill: qb("iso-fill"), lines: qb("lines"), stations: qb("stations") },
     markers: document.querySelectorAll('[data-pt="dot"]').length,
+    markerPos: (() => {
+      const e = document.querySelector('[data-pt="dot"]');
+      return e ? getComputedStyle(e).position : "none";
+    })(),
     zoom: Number(map.getZoom().toFixed(2)),
   };
 };
@@ -118,16 +123,22 @@ for (const [id, url, w, h, dpr, theme, wantMarkers, desc] of SHOTS) {
     .waitForFunction(() => !!document.querySelector("canvas"), { timeout: 30_000 })
     .then(() => true)
     .catch(() => false);
-  await new Promise((r) => setTimeout(r, 3500)); // 스타일/타일/레이어 최종 페인트 유예
+  await new Promise((r) => setTimeout(r, 4200)); // 스타일/타일/레이어 최종 페인트 유예 (재로딩 지연 포함)
 
   const main = await page.evaluate(DIAG_FN);
   await page.screenshot({ path: `${OUT}/${id}.png` });
 
-  // 다크 슷: 테마 전환(dark→light) 후 레이어가 다시 추가되는지 — 전환 타이밍 구멍 검증
+  // 다크 슷: 테마 전환(dark→light) 후 레이어가 다시 추가되는지 — 전환 타이밍 구멍 검증.
+  // 고정 대기 대신 조건 폴링: 재로딩+재페인트가 끝날 때까지 최대 20초 — 실제로 영구 미복구면 timeout으로 FAIL 잡힘
   let after = null;
   if (theme === "dark") {
     await page.evaluate((u) => window.__seoulMap.setStyle(u), STYLE_LIGHT);
-    await new Promise((r) => setTimeout(r, 2600));
+    const ready = await page
+      .waitForFunction(() => window.__seoulMap.isStyleLoaded() && !!window.__seoulMap.getLayer("stations"), { timeout: 20_000, polling: 250 })
+      .then(() => true)
+      .catch(() => false);
+    if (!ready) issues.push("setStyle 후 20초 안에 스타일/커스텀 레이어 미복구 (테마 전환 구멍)");
+    await new Promise((r) => setTimeout(r, 800));
     after = await page.evaluate(DIAG_FN);
     await page.screenshot({ path: `${OUT}/${id}b-after-setStyle.png` });
   }
@@ -136,6 +147,7 @@ for (const [id, url, w, h, dpr, theme, wantMarkers, desc] of SHOTS) {
   const problems = (d, tag) => {
     if (!d || d.error) return [`${tag}: ${d?.error ?? "진단 실패"}`];
     const p = [];
+    if (d.contH <= 0) p.push(`${tag}: 컨테이너 높이 ${d.contH}px — 지도 렌더 없음(마커/레이어 전부 무력)`);
     for (const [layer, ok] of Object.entries(d.present)) if (!ok) p.push(`${tag}: 레이어 없음 ${layer}`);
     if (d.coordsOutOfWorkd > 0) p.push(`${tag}: 링 좌표 ${d.coordsOutOfWorkd}개 서울 영역 밖 — 경도/위도 스왐 의심`);
     if (d.qsf.stations === 0) p.push(`${tag}: stations 소스에 피처 없음`);
@@ -146,6 +158,7 @@ for (const [id, url, w, h, dpr, theme, wantMarkers, desc] of SHOTS) {
     if (d.qrf.lines === 0) p.push(`${tag}: qrf lines = 0 (노선선이 화면에 안 보임 — zoom ${d.zoom}, minzoom 9 확인)`);
     if (d.qrf.lines === -1) p.push(`# qrf(lines) 쿼리 자체가 오류`);
     if (d.markers !== wantMarkers) p.push(`${tag}: 마커 ${d.markers}개 (기대 ${wantMarkers}개)`);
+    if (d.markerPos !== "absolute") p.push(`${tag}: 마커 position=${d.markerPos} (absolute 필요 — CSS 미로딩/주입 순서 오류)`);
     return p;
   };
 
