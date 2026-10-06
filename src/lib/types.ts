@@ -6,6 +6,8 @@ export type LngLat = [number, number];
 /** MapLibre에 넘길 GeoJSON 조각 (@types/geojson 없이 자체 선언 — 의존성 줄이기) */
 export type GeoPoint = { type: "Point"; coordinates: [number, number] };
 export type GeoPolygon = { type: "Polygon"; coordinates: number[][][] };
+/** T별 등시선 영역 (d3-contour 산출물; 각 폴리곤 = [바깥링, 구멍...]) */
+export type GeoMultiPolygon = { type: "MultiPolygon"; coordinates: number[][][][] };
 export type GeoLine = { type: "LineString"; coordinates: [number, number][] };
 export type GeoFC<G, P> = { type: "FeatureCollection"; features: Array<{ type: "Feature"; geometry: G; properties: P }> };
 
@@ -34,7 +36,8 @@ export interface RawLine {
   name: string;
   /** 공식 노선색 (#rrggbb) */
   color: string;
-  /** 노선 선형 (Path[] = 좌표열의 나열, shapes 단순화 결과) */
+  /** ⚠ 노선 선형 (Path[] = 좌표열, shapes 단순화 결과). 좌표 순서는 **[lat, lng]** (GTFS 관행) —
+   * 지도에 얹기 전 [lng,lat]로 스왑해야 한다 (layers.ts paintLines가 처리). */
   paths: LngLat[][];
 }
 
@@ -114,7 +117,7 @@ export interface Route {
   steps: RouteStep[];
 }
 
-/** 400m 격자 도달 시간 필드. Infinity = 도달 불가 (도보 반경 밖 또는 연결 없음). */
+/** 250 m 격자 도달 시간 필드 (셀 중심 기준). Infinity = 도달 불가 (도보 반경 밖 또는 연결 없음). */
 export interface IsoGrid {
   x0: number;
   y0: number;

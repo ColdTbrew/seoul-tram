@@ -5,9 +5,9 @@ import { LngLatBounds, Marker as MLMarker, Map as MLMap, setWorkerUrl } from "ma
 import workerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url";
 import { fmtTime } from "@/lib/format.ts";
 import { nearestStops, timeToPoint, toLL } from "@/lib/graph.ts";
-import type { GeoFC, GeoPoint, GeoPolygon, GraphModel, IsoGrid, LngLat, Route, Solution } from "@/lib/types.ts";
+import type { GeoFC, GeoMultiPolygon, GeoPoint, GraphModel, IsoGrid, LngLat, Route, Solution } from "@/lib/types.ts";
 import { basemapUrl } from "./basemap.ts";
-import { paintIso, paintRoute, paintStops, resetCustomLayers } from "./layers.ts";
+import { paintIso, paintLines, paintRoute, paintStops, resetCustomLayers } from "./layers.ts";
 import type { Resolved } from "@/hooks/useTheme.tsx";
 
 export type MapPick = { kind: "stop"; ll: LngLat; name: string } | { kind: "point"; ll: LngLat };
@@ -18,7 +18,7 @@ interface Props {
   solution: Solution | null;
   grid: IsoGrid | null;
   maxMinutes: number;
-  contours: GeoFC<GeoPolygon, { t: number }>;
+  contours: GeoFC<GeoMultiPolygon, { t: number }>;
   stopsFC: GeoFC<GeoPoint, { t: number; name: string }>;
   route: Route | null;
   origin: LngLat | null;
@@ -38,8 +38,12 @@ setWorkerUrl(workerUrl);
 
 function makeMarker(ll: LngLat, color: string, draggable: boolean): MLMarker {
   const el = document.createElement("div");
-  el.className = "size-4 shrink-0 rounded-full border-2 border-white shadow-[0_1px_4px_rgba(0,0,0,.45)]";
-  el.style.background = color;
+  el.dataset.pt = "dot"; // 검증 스크립트용 셀렉터: [data-pt="dot"]
+  // Tailwind 클래스 문자열은 프러지 위험 — 마커 스타일은 인라인으로만 (18px 흰 테두리 포함)
+  el.style.cssText =
+    "width:18px;height:18px;border-radius:9999px;border:2px solid #ffffff;box-shadow:0 1px 4px rgba(0,0,0,.45);background:" +
+    color +
+    ";";
   return new MLMarker({ element: el, anchor: "center", draggable: draggable }).setLngLat(ll);
 }
 
@@ -61,7 +65,8 @@ export function MapCanvas(props: Props) {
 
     resetCustomLayers(map);
     paintIso(map, p.contours, p.maxMinutes, p.resolved === "dark");
-    paintStops(map, p.stopsFC, p.maxMinutes);
+    paintLines(map, p.model, p.resolved === "dark");
+    paintStops(map, p.stopsFC, p.maxMinutes, p.resolved === "dark");
     if (p.route) paintRoute(map, p.model, p.route, p.resolved === "dark");
 
     const syncMarker = (
@@ -116,6 +121,8 @@ export function MapCanvas(props: Props) {
       attributionControl: { compact: true }, // © OpenStreetMap contributors © CARTO (style attribution)
     });
     mapRef.current = map;
+    const win = window as unknown as { __seoulMap?: MLMap };
+    win.__seoulMap = map; // E2E 검증 스크립트용 훅 — 언마운트 때 지운다
 
     // 스타일 로딩은 비동기 — 완료 직후와 유예 뒤에 한 번 더 그리면 레이어 누락이 없다
     const repaintSoon = () => {
@@ -123,6 +130,11 @@ export function MapCanvas(props: Props) {
       window.setTimeout(() => repaintRef.current(), 900);
     };
     map.once("load", repaintSoon);
+    // 테마 전환의 setStyle 후에도 styledata 마지막 발화(=준비 완료)에서 반드시 재構築한다 (타이밍 구멍 메움)
+    const onStyle = () => {
+      if (map.isStyleLoaded()) repaintRef.current();
+    };
+    map.on("styledata", onStyle);
 
     // 클릭/호버 히트테스트: 16px 반경 내 최단 정류장 (버킷 인덱스 기반 — queryRenderedFeatures 반경 옵션보다 정확)
     map.on("click", (e) => {
@@ -159,25 +171,30 @@ export function MapCanvas(props: Props) {
     map.on("mouseout", () => setTooltip(null));
 
     // 드래그 중 등시선 옅게 (v0 동작 유지)
-    const setHeatOpacity = (fill: number | null, line: number | null) => {
-      if (!map.getLayer("pt-heat-fill")) return;
-      if (fill !== null) map.setPaintProperty("pt-heat-fill", "fill-opacity", fill);
-      if (line !== null) map.setPaintProperty("pt-heat-line", "line-opacity", line);
+    const setHeatOpacity = (fill: number, line: number) => {
+      if (!map.getLayer("iso-fill")) return;
+      map.setPaintProperty("iso-fill", "fill-opacity", fill);
+      map.setPaintProperty("iso-line", "line-opacity", line);
     };
     map.on("dragstart", () => setHeatOpacity(0.1, 0.15));
-    map.on("dragend", () => setHeatOpacity(0.24, 0.75));
+    map.on("dragend", () => {
+      const dark = propsRef.current.resolved === "dark";
+      setHeatOpacity(dark ? 0.36 : 0.3, dark ? 0.8 : 0.75);
+    });
 
     return () => {
+      map.off("styledata", onStyle);
       markerFromRef.current?.remove();
       markerToRef.current?.remove();
       markerFromRef.current = null;
       markerToRef.current = null;
+      if (win.__seoulMap === map) delete win.__seoulMap;
       map.remove();
       mapRef.current = null;
     };
   }, []);
 
-  // 2) 테마 변경 → 베이스 스타일 재로딩(posatron↔dark-matter), 잠시 뒤 커스텀 레이어 재構築
+  // 2) 테마 변경 → 베이스 스타일 재로딩(positron↔dark-matter). styledata 리스너가 로딩 완료 짝에 재構築한다.
   const firstRender = useRef(true);
   useEffect(() => {
     const map = mapRef.current;

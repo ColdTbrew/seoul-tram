@@ -4,13 +4,13 @@ import { useMemo } from "react";
 import { REACH } from "@/lib/constants.ts";
 import { dijkstraFrom, timeToPoint } from "@/lib/graph.ts";
 import { computeGrid, contourRings } from "@/lib/iso.ts";
-import type { GeoFC, GeoPoint, GeoPolygon, GraphModel, IsoGrid, Place, Solution } from "@/lib/types.ts";
+import type { GeoFC, GeoMultiPolygon, GeoPoint, GraphModel, IsoGrid, Place, Solution } from "@/lib/types.ts";
 
 export interface TripPlan {
   solution: Solution | null;
   grid: IsoGrid | null;
-  /** 등시선 매끄러운 닫힌 링들 (GeoJSON Polygon, 경도/위도) */
-  contours: GeoFC<GeoPolygon, { t: number }>;
+  /** 등시선 (MultiPolygon = 바깥링+구멍; T 큰 순서로 그려 작은 링이 위에 온다) */
+  contours: GeoFC<GeoMultiPolygon, { t: number }>;
   /** 정류장 점 (properties.t = 도달 시간 분, 음수 = 미도달) */
   stopsFC: GeoFC<GeoPoint, { t: number; name: string }>;
   summary: {
@@ -21,12 +21,14 @@ export interface TripPlan {
   } | null;
 }
 
-function buildContours(model: GraphModel, grid: IsoGrid, isos: number[]): GeoFC<GeoPolygon, { t: number }> {
-  const features: GeoFC<GeoPolygon, { t: number }>["features"] = [];
-  for (const t of isos) {
-    if (t <= 0) continue;
-    for (const ring of contourRings(model, grid, t)) {
-      features.push({ type: "Feature", geometry: { type: "Polygon", coordinates: [ring] }, properties: { t } });
+function buildContours(model: GraphModel, grid: IsoGrid, isos: number[]): GeoFC<GeoMultiPolygon, { t: number }> {
+  // T 큰 것부터 그려 작은 링이 위에 오게 한다 (T=30 영역 ⊂ T=45 영역이므로 순서가 색의 기준).
+  const ts = [...new Set(isos.filter((t) => t > 0))].sort((a, b) => b - a);
+  const features: GeoFC<GeoMultiPolygon, { t: number }>["features"] = [];
+  for (const t of ts) {
+    const coordinates = contourRings(model, grid, t);
+    if (coordinates.length) {
+      features.push({ type: "Feature", geometry: { type: "MultiPolygon", coordinates }, properties: { t } });
     }
   }
   return { type: "FeatureCollection", features };
@@ -47,7 +49,7 @@ function buildStopsFC(model: GraphModel, solution: Solution): GeoFC<GeoPoint, { 
   };
 }
 
-const EMPTY_FC: GeoFC<GeoPolygon, { t: number }> = { type: "FeatureCollection", features: [] };
+const EMPTY_FC: GeoFC<GeoMultiPolygon, { t: number }> = { type: "FeatureCollection", features: [] };
 const EMPTY_POINTS: GeoFC<GeoPoint, { t: number; name: string }> = { type: "FeatureCollection", features: [] };
 
 export function useTripPlan(

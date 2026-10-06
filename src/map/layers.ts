@@ -1,67 +1,105 @@
 /** MapLibre 커스텀 페인트 팩토리. MapLibre API 잔기술(소스/레이어키/expression)은
- * 이 파일과 MapCanvas.tsx 안에 봉인한다. 좌표는 LngLat=[경도,위도] = GeoJSON 순서와 동일해 변환 불필요. */
+ * 이 파일과 MapCanvas.tsx 안에 봉인한다. 좌표는 LngLat=[경도,위도] = GeoJSON 순서와 동일해 변환 불필요.
+ * 레이어 추가 순서(아래→위): iso-fill → iso-line → lines → stations → route. */
 import type { Map as MLMap } from "maplibre-gl";
 import { PALETTE, FAR_COLOR } from "@/lib/constants.ts";
 import { rgb } from "@/lib/format.ts";
-import type { GeoFC, GeoPoint, GeoPolygon, GraphModel, Route } from "@/lib/types.ts";
+import type { GeoFC, GeoLine, GeoMultiPolygon, GeoPoint, GraphModel, Route } from "@/lib/types.ts";
 
-export const LAYER_IDS = ["pt-heat-fill", "pt-heat-line", "pt-stops", "pt-route"] as const;
-const SOURCE_IDS = ["pt-heat", "pt-stops", "pt-route"] as const;
+export const LAYER_IDS = ["iso-fill", "iso-line", "lines", "stations", "route"] as const;
+const SOURCE_IDS = ["iso", "lines", "stations", "route"] as const;
 
-/** 테마 전환(setStyle) 전 커스텀 레이어 제거 — 재로딩된 스타일엔 커스텀 레이어가 사라진 뒤다. */
+/** 테마 전환(setStyle)·재페인트 전 커스텀 레이어 제거 — 재로딩된 스타일엔 커스텀 레이어가 사라진 뒤다. */
 export function resetCustomLayers(map: MLMap) {
   for (const id of LAYER_IDS) if (map.getLayer(id)) map.removeLayer(id);
   for (const sid of SOURCE_IDS) if (map.getSource(sid)) map.removeSource(sid);
 }
 
-/** 등시선: 스무딩된 닫힌 링 GeoJSON → fill(반투명) + line(테두리 강조) 레이어 2개. */
-export function paintIso(map: MLMap, fc: GeoFC<GeoPolygon, { t: number }>, max: number, dark: boolean) {
+/** 시간 → 색 램프 (t/max 정규화, 음수/초과는 회색). */
+const ramp = (max: number) =>
+  ["interpolate", ["linear"], ["/", ["get", "t"], max], ...PALETTE.flatMap(([f, c]) => [f, rgb(c)])];
+
+/** 등시선: 스무딩된 닫힌 링 MultiPolygon(구멍 포함 가능) → fill(반투명) + line(테두리 강조). */
+export function paintIso(map: MLMap, fc: GeoFC<GeoMultiPolygon, { t: number }>, max: number, dark: boolean) {
   if (!fc.features.length) return;
-  map.addSource("pt-heat", { type: "geojson", data: fc as never });
-  const ramp = ["interpolate", ["linear"], ["/", ["get", "t"], max], ...PALETTE.flatMap(([f, c]) => [f, rgb(c)])];
+  map.addSource("iso", { type: "geojson", data: fc as never });
   map.addLayer({
-    id: "pt-heat-fill",
-    type: "fill",
-    source: "pt-heat",
+    id: "iso-fill",
+    type: "fill" as const,
+    source: "iso",
     paint: {
-      "fill-color": ramp as never,
-      "fill-opacity": dark ? 0.3 : 0.24,
-    } as never,
-  });
+      "fill-color": ramp(max) as never,
+      "fill-opacity": dark ? 0.36 : 0.3,
+    },
+  } as never);
   map.addLayer({
-    id: "pt-heat-line",
-    type: "line",
-    source: "pt-heat",
+    id: "iso-line",
+    type: "line" as const,
+    source: "iso",
     paint: {
-      "line-color": ramp as never,
+      "line-color": ramp(max) as never,
       "line-width": 1.2,
       "line-opacity": dark ? 0.8 : 0.75,
-    } as never,
-  });
+    },
+  } as never);
 }
 
-/** 정류장 점: 원(circle) 레이이어, 색 = 도달 시간 램프 (음수 t = 미도달 = 회색). */
-export function paintStops(map: MLMap, fc: GeoFC<GeoPoint, { t: number; name: string }>, max: number) {
-  if (!fc.features.length) return;
-  if (map.getSource("pt-stops")) return;
-  map.addSource("pt-stops", { type: "geojson", data: fc as never });
+/** 지하철 노선망 전체(22개 노선 82개 path) — 공식 노선색. 등시선 fill 위·역 점 아래에 깔아야
+ * 양쪽 테마에서 베이스맵과 구분된다 (직전 빌드엔 이 레이어가 통째로 빠져 노선색이 안 보였다). */
+export function paintLines(map: MLMap, model: GraphModel, dark: boolean) {
+  const features: Array<{ type: "Feature"; geometry: GeoLine; properties: { color: string } }> = [];
+  for (const line of model.data.lines) {
+    for (const path of line.paths) {
+      if (path.length >= 2) {
+        // network.json의 paths는 [lat,lng] 저장(GTFS 관행) — GeoJSON/MapLibre는 [lng,lat]이므로 스왑.
+        features.push({
+          type: "Feature" as const,
+          geometry: { type: "LineString" as const, coordinates: path.map(([lat, lng]) => [lng, lat] as [number, number]) },
+          properties: { color: line.color },
+        });
+      }
+    }
+  }
+  if (!features.length) return;
+  map.addSource("lines", { type: "geojson", data: { type: "FeatureCollection", features } as never });
   map.addLayer({
-    id: "pt-stops",
-    type: "circle",
-    source: "pt-stops",
+    id: "lines",
+    type: "line" as const,
+    source: "lines",
+    minzoom: 7,
     paint: {
-      "circle-radius": 3.2,
+      "line-color": ["get", "color"] as never,
+      "line-width": ["interpolate", ["linear"], ["zoom"], 10, 1.5, 14, 3] as never,
+      "line-opacity": dark ? 0.55 : 0.8,
+    },
+  } as never);
+}
+
+/** 정류장 점: 원(circle) 레이어, 색 = 도달 시간 램프(음수/초과 = 회색).
+ * 반경은 줌 10:2.5 → 12:4 → 14:6 보간 + 1px 흰 테두리 — 노선 선층 바로 위에 떠서 구분된다. */
+export function paintStops(map: MLMap, fc: GeoFC<GeoPoint, { t: number; name: string }>, max: number, dark: boolean) {
+  if (!fc.features.length) return;
+  map.addSource("stations", { type: "geojson", data: fc as never });
+  map.addLayer({
+    id: "stations",
+    type: "circle" as const,
+    source: "stations",
+    paint: {
+      "circle-radius": ["interpolate", ["linear"], ["zoom"], 10, 2.5, 12, 4, 14, 6] as never,
       "circle-color": [
         "case",
         ["<", ["get", "t"], 0],
         rgb(FAR_COLOR),
         [">", ["get", "t"], max],
         rgb(FAR_COLOR),
-        ["interpolate", ["linear"], ["/", ["get", "t"], max], ...PALETTE.flatMap(([f, c]) => [f, rgb(c)])],
+        ramp(max),
       ] as never,
-      "circle-opacity": 0.6,
-    } as never,
-  });
+      "circle-opacity": 0.85,
+      "circle-stroke-width": 1,
+      "circle-stroke-color": "#ffffff",
+      "circle-stroke-opacity": dark ? 0.25 : 0.9,
+    },
+  } as never);
 }
 
 /** 경로 하이라이트: 도보 = 얇은 흑(다크=백)색, 승차 = 공식 노선색 굵은 선. */
@@ -81,16 +119,16 @@ export function paintRoute(map: MLMap, model: GraphModel, route: Route, dark: bo
       },
     }));
   if (!features.length) return;
-  map.addSource("pt-route", { type: "geojson", data: { type: "FeatureCollection", features } as never });
+  map.addSource("route", { type: "geojson", data: { type: "FeatureCollection", features } as never });
   map.addLayer({
-    id: "pt-route",
-    type: "line",
-    source: "pt-route",
+    id: "route",
+    type: "line" as const,
+    source: "route",
     minzoom: 10,
     paint: {
       "line-color": ["get", "color"] as never,
       "line-width": 3.5,
       "line-opacity": 0.9,
-    } as never,
+    },
   } as never);
 }
