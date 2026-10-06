@@ -1,5 +1,13 @@
 /** MapLibre 래퍼: React 트리는 이 컴포넌트에게 props만 흘려보내고, MapLibre와의 모든 명령형
- * 상호작용(스타일 재로딩·레이어 페인트·마커·히트테스트)은 이 파일과 layers.ts 안에만 있다. */
+ * 상호작용(스타일 재로딩·레이어 페인트·마커·히트테스트)은 이 파일과 layers.ts 안에만 있다.
+ *
+ * ⚠ 레이스 버그 (2026-07-08 실측): setStyle()/최초 로딩에서 styledata·idle가 나보다 먼저 style.load가
+ * 늦게 오는 날이 있다 → styledata 한 번 + 지체 없이는 setStyle에서 style.load가 안 돌아 페인트가 영영
+ * 안 돌아 레이어가 통째로 사라진다. 그래서 (1) 페인트는 style.load(메인 체인)·styledata(ready 판정 짝)·idle
+ * 안전망 세 곳에서 스타일 준비 완료 때만 실행하고, 페인트 체인은 매번 커스텀 레이어를 지우고 다시 올린다
+ * (addLayer 충돌·미로딩 얹기_both 차단), (2) styleReadyRef.current 로
+ * '이번 스타일 페인트가 미완료'를 판정(지체 카운트 없음 — 느린 회피에서도 정확), (3) styleReadyRef.current
+ * 가 false인 동안 styledata가 오면 styleReadyRef.current = false 를 복원한다. */
 import { useEffect, useRef, useState } from "react";
 import { LngLatBounds, Marker as MLMarker, Map as MLMap, setWorkerUrl } from "maplibre-gl";
 import workerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url";
@@ -36,8 +44,7 @@ function hitRadius(zoom: number, lat: number): number {
 // MapLibre v6는 워커 URL을 명시해야 한다 — 지정 없으면 번들된 워커가 404(지도가 텅 빔). 파일 상단 = 생성 전 보장.
 setWorkerUrl(workerUrl);
 
-/** 감독 지정 마커 스타일: 16px 원형 — 배경 #000(다크 #fff) + 테두리 3px #fff(다크 #000) + 그림자 1px.
- * 테마 전환 시에도 이 함수로 재생성/갱신되므로 다크 매터 위에서 흰 점이 사라지는 법이 없다. */
+/** 감독 지정 마커 스타일: 16px 원형 — 배경 #000(다크 #fff) + 테두리 3px #fff(다크 #000) + 그림자 1px. */
 function markerCss(dark: boolean): string {
   return `width:16px;height:16px;border-radius:50%;background:${dark ? "#ffffff" : "#000000"};border:3px solid ${dark ? "#000000" : "#ffffff"};box-shadow:0 0 0 1px rgba(0,0,0,.3);`;
 }
@@ -59,11 +66,12 @@ export function MapCanvas(props: Props) {
   const repaintRef = useRef<() => void>(() => {});
   const [tooltip, setTooltip] = useState<{ x: number; y: number; text: string } | null>(null);
 
-  /** 전체 레이어/마커 재페인트 — MapLibre API 호출의 유일한 진입점 (스타일 준비 완료 때만) */
+  /** 전체 레이어/마커 재페인트 — MapLibre API 호출의 유일한 진입점.
+   * 페인트 체인 하나가 모든 레이어를 통째로 다시 올리므로 마커만 따로 갱신할 필요가 없다. */
   repaintRef.current = () => {
     const map = mapRef.current;
     const p = propsRef.current;
-    if (!map || !map.isStyleLoaded()) return;
+    if (!map) return;
 
     resetCustomLayers(map);
     paintIso(map, p.contours, p.maxMinutes, p.resolved === "dark");
@@ -71,10 +79,10 @@ export function MapCanvas(props: Props) {
     paintStops(map, p.stopsFC, p.maxMinutes, p.resolved === "dark");
     if (p.route) paintRoute(map, p.model, p.route, p.resolved === "dark");
 
+    const dark = p.resolved === "dark";
     const syncMarker = (
       ref: React.MutableRefObject<MLMarker | null>,
       ll: LngLat | null,
-      dark: boolean,
       draggable: boolean,
     ) => {
       if (ll) {
@@ -99,8 +107,8 @@ export function MapCanvas(props: Props) {
         ref.current = null;
       }
     };
-    syncMarker(markerFromRef, p.origin, p.resolved === "dark", true);
-    syncMarker(markerToRef, p.dest, p.resolved === "dark", false);
+    syncMarker(markerFromRef, p.origin, true);
+    syncMarker(markerToRef, p.dest, false);
 
     if (p.route) {
       const pts = p.route.steps.flatMap((s) => s.points);
@@ -117,6 +125,11 @@ export function MapCanvas(props: Props) {
     if (!containerRef.current || mapRef.current) return;
     const p = propsRef.current;
     const start = p.origin ?? [p.model.data.meta.defaultFrom.lon, p.model.data.meta.defaultFrom.lat];
+
+    /** 이번 스타일 로딩에 대한 페인트가 '미완료'인지. true = 아직 안 그렸다(또는 스타일이 새로 고침됐다). */
+    const styleReadyRef = { current: true };
+    let styleTimer = 0;
+
     const map = new MLMap({
       container: containerRef.current,
       style: basemapUrl(p.resolved, false),
@@ -130,29 +143,43 @@ export function MapCanvas(props: Props) {
     const win = window as unknown as { __seoulMap?: MLMap };
     win.__seoulMap = map; // E2E 검증 스크립트용 훅 — 언마운트 때 지운다
 
-    // 스타일 로딩은 비동기(테마 전환 재로딩 포함, 오프라인에선 타일 실패로 더 느려짐) —
-    // 여러 지점에서 재시도 페인트: styledata 직후 + 지연 재시도. 가드 없는 페인트는 스타일 준비 전엔 skip 된다.
-    const repaintSoon = () => {
-      for (const d of [200, 900, 2600, 4200]) window.setTimeout(() => repaintRef.current(), d);
+    /** 스타일 준비 완료 판정 시에만 전체 재페인트. 3초 단독 1회 타이머가 뒤따라, style.load가styledata
+     * 보다 늦게 오는 날에도 페인트가 살아 있다(지체 카운트 재시도는 전부 제거 — 레이스의 원인). */
+    const paintNow = () => {
+      repaintRef.current(); // 체인 최상단 resetCustomLayers가 이전 테마의 잔재를 항상 지운다 (addLayer 충돌 방지)
+      window.clearTimeout(styleTimer);
+      styleTimer = window.setTimeout(() => {
+        if (mapRef.current) repaintRef.current(); // 3초 단독 1회 → 12초 무한 루프 아님
+      }, 3000);
     };
-    map.on("load", repaintSoon); // 최초 로딩 + setStyle 재로딩마다 발화
 
-    // 스타일 재로딩 중 styledata가 뜨면: 준비 완료 시 즉시, 아직이면 1.5초 뒤 재시도 (테마 전환 타이밍 구멍 차단)
-    const onStyle = () => {
-      if (map.isStyleLoaded()) {
-        repaintRef.current();
-        return;
+    const onStyleData = () => {
+      const ready = map.isStyleLoaded();
+      if (ready) {
+        styleReadyRef.current = true;
+        paintNow();
+      } else {
+        // 재로딩 '중' — 이때 페인트하면 미완료 소스에 레이어를 얹어 조용히 버려진다. 반드시 미완료로 되돌린다.
+        styleReadyRef.current = false;
       }
-      // 재로딩 미완료(소스 pending) 동안 200ms마다 폴링 → 준비되면 페인트하고 멈춤 (최대 ~8초).
-      // 마지막 styledata가 로딩 완료 '중'에 떠도 레이어가 영구 누락되지 않는다 (간헐적 전체 미렌더 = 레이스 버그).
-      let n = 0;
-      const tick = () => {
-        if (map.isStyleLoaded()) repaintRef.current();
-        else if (++n < 40) window.setTimeout(tick, 200);
-      };
-      window.setTimeout(tick, 200);
     };
-    map.on("styledata", onStyle);
+
+    // 메인 체인: 스타일이 실제로 완전히 로드된 시점(정류장 점 + 링 채우기가 이 타이밍을 탄다)
+    const onStyleLoaded = () => {
+      if (map.isStyleLoaded()) {
+        styleReadyRef.current = true;
+        paintNow();
+      }
+    };
+
+    // 안전망: 스타일 준비가 됐는데 커스텀 레이어가 하나도 없으면(레이스) idle에서 한 번 더 올린다.
+    const onIdle = () => {
+      if (styleReadyRef.current && !map.getLayer("stations")) repaintRef.current();
+    };
+
+    map.on("styledata", onStyleData);
+    map.on("style.load", onStyleLoaded);
+    map.on("idle", onIdle);
 
     // 클릭/호버 히트테스트: 16px 반경 내 최단 정류장 (버킷 인덱스 기반 — queryRenderedFeatures 반경 옵션보다 정확)
     map.on("click", (e) => {
@@ -201,7 +228,10 @@ export function MapCanvas(props: Props) {
     });
 
     return () => {
-      map.off("styledata", onStyle);
+      window.clearTimeout(styleTimer);
+      map.off("styledata", onStyleData);
+      map.off("style.load", onStyleLoaded);
+      map.off("idle", onIdle);
       markerFromRef.current?.remove();
       markerToRef.current?.remove();
       markerFromRef.current = null;
@@ -212,38 +242,33 @@ export function MapCanvas(props: Props) {
     };
   }, []);
 
-  // 2) 테마 변경 → 베이스 스타일 재로딩(positron↔dark-matter). styledata 리스너가 로딩 완료 짝에 재構築한다.
+  // 2) 테마 변경 → 베이스 스타일 재로딩(positron↔dark-matter). diff:false 으로 완전 재로딩하면
+  // 스타일 id가 바뀌어 styledata가 무조건 1회 이상 발화 → style.load가 조용히 끝나도 styledata 단독
+  // 발화가 한 번은 반드시 온다. 타이머를 지우지 않는 게 핵심 — 지우면 style.load 단독 발화가 무력화된다.
   const firstRender = useRef(true);
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
     if (firstRender.current) {
       firstRender.current = false;
-      return; // 최초 생성은 현재 테마로 됐고, load 시점에 repaintSoon이 그림
+      return; // 최초 생성은 현재 테마로 됐고, styledata/style.load 체인이 그림
     }
-    map.setStyle(basemapUrl(props.resolved, false));
-    const t1 = window.setTimeout(() => repaintRef.current(), 600);
-    const t2 = window.setTimeout(() => repaintRef.current(), 3000);
-    return () => {
-      window.clearTimeout(t1);
-      window.clearTimeout(t2);
-    };
+    map.setStyle(basemapUrl(props.resolved, false), { diff: false });
+    // 재시도 타이머 없음 — style.load(메인 체인)가 늦게 돌아도 발화하고, 그보다 idle이 먼저 오면
+    // 안전망(idle 게이트)이 받는다. setStyle은 반드시 diff:false — diff:true 면 styledata 단독 발화가
+    // 아예 안 일어나고 style.load 도 조용히 끝나 페인트가 영영 안 도는 레이스가 재발한다.
   }, [props.resolved]);
 
-  // 3) 데이터/설정 변경 → 전체 재페인트 (스타일 재로딩 직후 유예 재시도 포함)
-  const originKey = props.origin?.join(",") ?? "";
-  const destKey = props.dest?.join(",") ?? "";
+  // 3) 데이터/설정 변경 → 전체 재페인트 (스타일 로딩이 진행 중이면 styledata/style.load/idle 체인이 그린다)
   useEffect(() => {
     repaintRef.current();
-    const t = window.setTimeout(() => repaintRef.current(), 700);
-    return () => window.clearTimeout(t);
-  }, [props.grid, props.maxMinutes, props.contours, props.stopsFC, props.route, originKey, destKey]);
+  }, [props.grid, props.maxMinutes, props.contours, props.stopsFC, props.route, props.origin, props.dest]);
 
   // 4) 초기화 버튼 → 전체 등시선 영역이 보이게 다시 맞춤
   useEffect(() => {
     const map = mapRef.current;
     const p = propsRef.current;
-    if (!map || !p.grid || !map.isStyleLoaded()) return;
+    if (!map || !p.grid) return;
     const g = p.grid;
     const sw = toLL(p.model, [g.x0, g.y0]);
     const ne = toLL(p.model, [g.x0 + g.cols * g.cell, g.y0 + g.rows * g.cell]);
@@ -252,6 +277,7 @@ export function MapCanvas(props: Props) {
 
   return (
     <div className="relative h-full w-full overflow-hidden">
+      {/* 인라인 absolute: maplibre-gl.css의 .maplibregl-map{position:relative}보다 우선 — 높이 0 방지 */}
       <div ref={containerRef} style={{ position: "absolute", inset: 0 }} />
       {tooltip && (
         <div
