@@ -34,11 +34,12 @@ interface Props {
   dest: LngLat | null;
   onPick: (pick: MapPick) => void;
   resetSignal: number;
-  /** 사용자가 지도를 직접 움직였을 때(드래그/핀치/휠 줌/회전). 프로그램적 이동(fitBounds)은 오지 않는다. */
+  /** 사용자가 지도를 직접 움직였을 때(드래그/핀치/휠 줌/회전). 프로그램적 이동을 originalEvent 유무로 가린다. */
   onUserMove?: () => void;
+  /** 열려 있는 패널이 가리는 픽셀 폭 (left = 데스크톱 패널, bottom = 모바일 시트) — 중심을 그만큼 밀어내는 데 쓴다. */
+  padding?: { left: number; bottom: number };
 }
 
-/** 줌/위도 → 화면 16px 상당의 m 반경 (클릭·호버 히트 반경, v0과 같은 근사식) */
 function hitRadius(zoom: number, lat: number): number {
   const mPerPx = (156543.033928041 / Math.pow(2, zoom)) * Math.cos((lat * Math.PI) / 180);
   return Math.max(16 * mPerPx, 120);
@@ -212,7 +213,7 @@ export function MapCanvas(props: Props) {
         return;
       }
       const name = p.model.data.stops[hit[0]!]!.n;
-      setTooltip({ x: e.point.x, y: e.point.y, text: `${name} · ${fmtTime(t)} (도보 접근 포함)` });
+      setTooltip({ x: e.point.x, y: e.point.y, text: `${name} · ${fmtTime(t)} (도보 포함)` });
       map.getCanvas().style.cursor = "pointer";
     });
     map.on("mouseout", () => setTooltip(null));
@@ -286,6 +287,16 @@ export function MapCanvas(props: Props) {
     const ne = toLL(p.model, [g.x0 + g.cols * g.cell, g.y0 + g.rows * g.cell]);
     map.fitBounds([sw, ne], { padding: 24, duration: 350 });
   }, [props.resetSignal]);
+
+  // 5) 열려 있는 패널(데스크톱 왼쪽/모바일 아래)이 가리는 폭만큼 중심을 밀어낸다 — 키가 문자열이라
+  // 페인트 체인(style.load/idle)과는 독립적으로 돌고, 키가 안 바뀌면 재발화하지 않는다.
+  const paddingKey = props.padding ? `${props.padding.left},${props.padding.bottom}` : "";
+  useEffect(() => {
+    const map = mapRef.current;
+    const p = propsRef.current.padding;
+    if (!map || !p) return;
+    map.easeTo({ padding: { top: 0, right: 0, left: p.left, bottom: p.bottom }, duration: 300 });
+  }, [paddingKey]);
 
   return (
     <div className="relative h-full w-full overflow-hidden">

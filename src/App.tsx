@@ -1,4 +1,4 @@
-/** App 셸: 탭(등시선/순위/안내) + URL 상태(?from=&to=) + 전체 폭 지도 위에 떠 있는 접이식 패널.
+/** App 셸: 탭(지도/역 순위/정보) + URL 상태(?from=&to=) + 전체 폭 지도 위에 떠 있는 접이식 패널.
  * 순수 파생(Dijkstra/격자/링)은 useTripPlan, 지도 명령형 상호작용은 MapCanvas — 여기는 배선만. */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { SlidersHorizontal } from "lucide-react";
@@ -22,10 +22,22 @@ const PANEL_KEY = "seoul-tram:panel";
 type Tab = "iso" | "rank" | "about";
 
 const TABS: Array<{ id: Tab; label: string }> = [
-  { id: "iso", label: "시간 등시선" },
+  { id: "iso", label: "지도" },
   { id: "rank", label: "역 순위" },
-  { id: "about", label: "안내" },
+  { id: "about", label: "정보" },
 ];
+
+/** 데스크톱(lg 이상) 여부 — 열린 패널이 지도의 어느 가장자리를 덮는지 알 때 쓴다 (좁은 화면은 아래 시트). */
+function useIsDesktop() {
+  const [d, setD] = useState(() => typeof matchMedia !== "undefined" && matchMedia("(min-width: 1024px)").matches);
+  useEffect(() => {
+    const m = matchMedia("(min-width: 1024px)");
+    const f = () => setD(m.matches);
+    m.addEventListener("change", f);
+    return () => m.removeEventListener("change", f);
+  }, []);
+  return d;
+}
 
 export default function App() {
   const { model, error } = useNetworkData();
@@ -44,6 +56,18 @@ export default function App() {
   // 접기는 한 번만: 지도를 직접 움직이거나 닫기 버튼을 누르거나. 다시 여는 건 사용자의 클릭뿐.
   const onUserMove = useCallback(() => setPanelOpen(false), [setPanelOpen]);
   const closePanel = useCallback(() => setPanelOpen(false), [setPanelOpen]);
+
+  // 열려 있는 패널/시트가 가리는 폭만큼 지도 중심을 밀어낸다 (닫으면 원위치).
+  const isDesktop = useIsDesktop();
+  const mapPadding = useMemo(
+    () =>
+      !panelOpen
+        ? { left: 0, bottom: 0 }
+        : isDesktop
+          ? { left: 344, bottom: 0 }
+          : { left: 0, bottom: Math.round((typeof window !== "undefined" ? window.innerHeight : 800) * 0.5) },
+    [panelOpen, isDesktop],
+  );
 
   // ?from=&to= 복원(북마크/공유 링크) — 데이터 준비 뒤 1회
   useEffect(() => {
@@ -99,14 +123,14 @@ export default function App() {
   if (error) {
     return (
       <div className="flex h-dvh flex-col items-center justify-center gap-1 px-6 text-center text-sm text-muted-foreground">
-        <p className="font-medium text-foreground">데이터 로드 실패</p>
+        <p className="font-medium text-foreground">데이터를 불러오지 못했습니다</p>
         <p className="font-mono text-xs">{error}</p>
       </div>
     );
   }
   if (!model) {
     return (
-      <div className="flex h-dvh items-center justify-center text-sm text-muted-foreground">노선망 로딩 중…</div>
+      <div className="flex h-dvh items-center justify-center text-sm text-muted-foreground">지하철 노선을 불러오는 중…</div>
     );
   }
 
@@ -130,7 +154,7 @@ export default function App() {
   return (
     <div className="flex h-dvh flex-col bg-background text-foreground">
       <header className="z-30 flex h-12 shrink-0 items-center gap-2 border-b border-border px-3">
-        <h1 className="text-[13px] font-semibold tracking-tight">서울 지하철 · 시간 등시선</h1>
+        <h1 className="text-[13px] font-semibold tracking-tight">서울 지하철 시간 지도</h1>
         <nav className="ml-2 flex items-center gap-0.5 text-xs">
           {TABS.map((t) => (
             <button
@@ -165,6 +189,7 @@ export default function App() {
             onPick={onPick}
             resetSignal={resetSignal}
             onUserMove={onUserMove}
+            padding={mapPadding}
           />
 
           {/* 데스크톱(lg 이상): 지도 위에 떠 있는 패널. 접으면 지도가 다시 전체 폭을 쓰고 클릭이 통과한다. */}
@@ -209,7 +234,7 @@ export default function App() {
 
       {tab === "rank" && (
         <main className="min-h-0 flex-1 overflow-y-auto">
-          <RankingsView origin={origin?.label ?? null} summary={plan.summary} />
+          <RankingsView summary={plan.summary} />
         </main>
       )}
       {tab === "about" && (

@@ -14,7 +14,7 @@ export function ThemeToggle() {
       size="icon"
       className="size-8"
       title={label}
-      aria-label={label}
+      aria-label="테마 바꾸기"
       onClick={() => setTheme(next)}
     >
       <Icon className="size-4" />

@@ -13,7 +13,7 @@ export function IsochroneLegend({ focus }: { focus: number }) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-sm">등시선 · 색</CardTitle>
+        <CardTitle className="text-sm">시간 색</CardTitle>
       </CardHeader>
       <CardContent className="space-y-2 text-xs">
         <div className="flex items-end gap-1">
@@ -31,10 +31,10 @@ export function IsochroneLegend({ focus }: { focus: number }) {
         </div>
         <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
           <span className="size-2.5 shrink-0 rounded-sm" style={{ background: FAR_HEX, opacity: 0.45 }} />
-          90분 넘음 · 못 감 (회색) — 지도의 역 점도 같은 색입니다
+          회색: 90분 넘게 걸리거나 못 가는 곳
         </div>
         <p className="text-[11px] text-muted-foreground">
-          진할수록 가깝습니다. 지금은 {focus}분 밴드가 강조 중입니다 — 그 경계에만 굵은 윤곽과 "분" 라벨이 붙습니다.
+          진할수록 가깝습니다 — 강조한 범위에만 윤곽과 라벨을 붙입니다.
         </p>
       </CardContent>
     </Card>

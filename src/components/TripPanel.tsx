@@ -68,7 +68,7 @@ export function TripPanel(p: Props) {
           />
           <StationSearch
             label="도착"
-            placeholder="도착역 또는 좌표"
+            placeholder="도착역 선택 (선택 사항)"
             data={p.model.data}
             value={p.dest}
             onPick={p.onDest}
@@ -78,11 +78,11 @@ export function TripPanel(p: Props) {
 
       <Card>
         <CardHeader className="pb-2">
-          <CardTitle className="text-sm">등시선 (소요 시간 등고선)</CardTitle>
+          <CardTitle className="text-sm">걸리는 시간</CardTitle>
         </CardHeader>
         <CardContent className="flex flex-wrap gap-1.5">
           <p className="w-full pb-0.5 text-[11px] text-muted-foreground">
-            5개 밴드를 항상 그립니다 — 고른 밴드만 윤곽·라벨로 강조합니다.
+            5개 시간 범위를 항상 그립니다. 고른 범위만 윤곽과 라벨로 강조합니다.
           </p>
           {BANDS.map((t) => (
             <button
@@ -94,7 +94,7 @@ export function TripPanel(p: Props) {
                   : "border-border text-muted-foreground hover:bg-secondary"
               }`}
             >
-              ≤{t}분
+              {t}분
             </button>
           ))}
         </CardContent>
@@ -103,15 +103,15 @@ export function TripPanel(p: Props) {
       {p.summary && (
         <Card>
         <CardHeader className="pb-2">
-          <CardTitle className="text-sm">개요</CardTitle>
+          <CardTitle className="text-sm">요약</CardTitle>
         </CardHeader>
         <CardContent className="flex flex-wrap gap-1.5 font-mono text-[11px]">
           <span className="rounded-md border border-border bg-secondary px-2 py-1 text-secondary-foreground">
-            {p.summary.reachMinutes}분 이내역 {p.summary.withinReach}/{p.summary.totalStations}
+            {p.summary.reachMinutes}분 안에 갈 수 있는 역 {p.summary.withinReach}곳 (전체 {p.summary.totalStations}곳)
           </span>
           {p.summary.farthest && (
             <span className="rounded-md border border-border bg-secondary px-2 py-1 text-secondary-foreground">
-              최원격 {p.summary.farthest.name} · {fmtTime(p.summary.farthest.minutes)}
+              가장 먼 역: {p.summary.farthest.name} ({fmtTime(p.summary.farthest.minutes)})
             </span>
           )}
         </CardContent>
@@ -124,7 +124,7 @@ export function TripPanel(p: Props) {
             <CardTitle className="text-sm">경로</CardTitle>
           </CardHeader>
           <CardContent className="space-y-1.5 text-xs">
-            {!p.route && <p className="text-muted-foreground">지하철로 도달할 수 없습니다.</p>}
+            {!p.route && <p className="text-muted-foreground">지하철로 갈 수 없습니다.</p>}
             {p.route?.steps.map((s, i) => {
               if (s.kind === "walk") {
                 return (
@@ -149,7 +149,7 @@ export function TripPanel(p: Props) {
             })}
             {p.route && (
               <div className="flex items-baseline justify-between border-t border-border/60 pt-1.5 font-mono text-[11px]">
-                <span>총 소요</span>
+                <span>총</span>
                 <span>{fmtTime(p.route.total)}</span>
               </div>
             )}

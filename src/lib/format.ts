@@ -7,12 +7,14 @@ export const clamp = (v: number, a: number, b: number): number => Math.min(b, Ma
 export const dist2 = (a: [number, number], b: [number, number]): number =>
   Math.hypot(a[0] - b[0], a[1] - b[1]);
 
+/** 분 → 표기: 60분 미만 "40분", 정각 "2시간", 그 외 "2시간 6분" (소수 분은 반올림, 0 패딩 없음). */
 export function fmtTime(m: number): string {
   if (!Number.isFinite(m)) return "—";
   if (m < 1) return "1분 미만";
   if (m < 60) return `${Math.round(m)}분`;
   const h = Math.floor(m / 60);
-  return `${h}시간 ${String(Math.round(m - h * 60)).padStart(2, "0")}분`;
+  const mm = Math.round(m - h * 60);
+  return mm === 0 ? `${h}시간` : `${h}시간 ${mm}분`;
 }
 
 /** t = 0(가슴/진함)~1(멂/옅음). 1 초과는 먼 지역 회색. 반환은 [r,g,b] 0~255. */

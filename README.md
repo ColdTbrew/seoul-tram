@@ -1,7 +1,7 @@
 # 서울 지하철로 몇 분? · Seoul by Subway
 
 서울 지하철 22개 노선으로 **몇 분 만에 어디까지 갈 수 있는지** 보여주는 등시선(isochrone) 지도.
-출발지를 고르면 15/30/45/60분 안에 도달 가능한 범위가 링으로, 역은 도달 시간 색으로, 이동 경로는 카드로 뜬다.
+출발지를 고르면 15/30/45/60/90분 안에 갈 수 있는 범위가 링으로, 역은 걸리는 시간 색으로, 이동 경로는 카드로 뜬다.
 서버도 API 키도 없이, 정적 JSON 두 개와 브라우저 안의 다이익스트라로만 굴러간다.
 A static isochrone map of the Seoul metro — pick an origin and see how far (and how fast) you can go.
 
@@ -14,26 +14,26 @@ A static isochrone map of the Seoul metro — pick an origin and see how far (an
 
 ![라이트 모드 등시선 화면](docs/screenshots/hero-light.png)
 
-*라이트 모드 · 시청 출발 30분 등시선, 노선 공식색, 역은 도달 시간 색*
+*라이트 모드 · 시청 출발 30분 등시선, 노선 공식색, 역은 걸리는 시간 색*
 
 ## 이 사이트는 뭘 보여주나
 
-원작은 **« À portée de tram »**([tram.camilleroux.com](https://tram.camilleroux.com/), MIT © Camille Roux) — 집에서 몇 분 안에 어디까지 갈 수 있는지 보여주는 프랑스 트램용 시각화다. 그 **비용 모델**(도보 + 대기 + 승차를 합친 도달 시간, 역 색칠과 닫힌 등시선을 위한 시간 기반 색)을 서울 지하철 규모에 맞게 서울판으로 다시 만들었다.
+원작은 **« À portée de tram »**([tram.camilleroux.com](https://tram.camilleroux.com/), MIT © Camille Roux) — 집에서 몇 분 안에 어디까지 갈 수 있는지 보여주는 프랑스 트램용 시각화다. 그 **비용 모델**(도보 + 대기 + 승차를 더한 걸리는 시간, 역 색칠과 닫힌 등시선을 위한 시간 기반 색)을 서울 지하철 규모에 맞게 서울판으로 다시 만들었다.
 
-서울 쪽으로 새로 만든 것은 이 세 가지다. ① **그래프의 노드는 역이 아니라 승강장**이다 — 같은 역의 상·하행 승강장이 50–200 m 떨어져 있고 호선별로 다른 stop_id를 쓰기 때문에, 승강장을 노드로 두면 개찰구를 나서서 다른 호선으로 갈아타는 시간이 자동으로 계산에 들어간다. ② **역간 소요시간과 배차간격을 KTDB 국가교통DB GTFS에서 추정**한다 — 원작의 «Modèle»을 서울 데이터에 맞게 적용한 것이다. ③ 한글 역 이름·승강장 표기 검색, 노선색, 경로 카드, 라이트/다크 재조정이 필요했다.
+서울 쪽으로 새로 만든 것은 이 세 가지다. ① **그래프의 노드는 역이 아니라 승강장**이다 — 같은 역의 상·하행 승강장이 50–200 m 떨어져 있고 호선별로 다른 stop_id를 쓰기 때문에, 승강장을 노드로 두면 개찰구를 나서서 다른 호선으로 갈아타는 시간이 자동으로 계산에 들어간다. ② **역간 이동 시간과 배차간격을 KTDB 국가교통DB GTFS에서 추정**한다 — 원작의 «Modèle»을 서울 데이터에 맞게 적용한 것이다. ③ 한글 역 이름·승강장 표기 검색, 노선색, 경로 카드, 라이트/다크 재조정이 필요했다.
 
-> **English.** This is a Seoul re-implementation of [À portée de tram](https://tram.camilleroux.com/) by Camille Roux, sharing its cost model (walk + wait + ride, colours keyed to travel time, closed isochrone rings). **Platforms** — not stations — are the graph nodes, so leaving the paid area for a transfer and walking from your door to the platform both cost time, with no hand-tuned interchange penalties. Ride times and headways are derived from the KTDB national GTFS feed instead of a curated timetable, and isochrones are built as closed contours from a 250 m time grid. The app has three tabs: isochrones, station rankings, and about.
+> **English.** This is a Seoul re-implementation of [À portée de tram](https://tram.camilleroux.com/) by Camille Roux, sharing its cost model (walk + wait + ride, colours keyed to travel time, closed isochrone rings). **Platforms** — not stations — are the graph nodes, so leaving the paid area for a transfer and walking from your door to the platform both cost time, with no hand-tuned interchange penalties. Ride times and headways are derived from the KTDB national GTFS feed instead of a curated timetable, and isochrones are built as closed contours from a 150 m time grid. The app has three tabs: isochrones, station rankings, and about.
 
 ## 기능
 
-- 시간 등시선 링 **15 / 30 / 45 / 60분** — 겹쳐 켜기 가능(기본 30분). 250 m 격자에서 계산한 **닫힌 링**이라, 도달 불가능한 지역은 어떤 링에도 채워지지 않는다
-- **도달 시간으로 역 색칠** — 0분에 가까울수록 진한 색(45분 상한), 범례 카드는 등시선 색과 노선색 두 개
-- **이동 계획 카드** — 도보 → 승차 → 환승 순서대로 각각의 시간과 노선색 점, 마지막에 총 소요 시간 (시청 → 강남은 지금 데이터에서 약 40분, 2호선·3호선을 타고 도보 구간 두 개를 지난다)
+- 시간 등시선 링 **15 / 30 / 45 / 60 / 90분** — 다섯 개를 항상 함께 켭니다 (강조는 이 중 하나). 150 m 격자에서 계산한 **닫힌 링**이라, 못 가는 곳은 어떤 링에도 채워지지 않는다
+- **걸리는 시간으로 역 색칠** — 0분에 가까울수록 진한 색(90분 상한), 범례 카드는 등시선 색과 노선색 두 개
+- **이동 계획 카드** — 도보 → 승차 → 환승 순서대로 각각의 시간과 노선색 점, 마지막에 총 걸리는 시간 (시청 → 강남은 지금 데이터에서 약 40분, 2호선·3호선을 타고 도보 구간 두 개를 지난다)
 - **역 검색** — 한글 부분 일치(`을지로` → 을지로입구 · 을지로3가 · 을지로4가), 승강장 표기를 그대로 쳐도 매칭(`왕십리(성동구청)` → `왕십리`), `경도, 위도` 좌표 직접 입력
 - **지도 클릭으로 도착 지정**(가까운 역이든 임의 지점이든), **출발 마커 드래그로 출발지 이동**, 출발/도착 교환 버튼, 지도를 드래그하면 등시선이 옅어진다
-- **커서 위치의 도달 시간 표시** — 가까운 승강장 위에 마우스를 올리면 커서가 손가락으로 바뀌며 `역 이름 · 시간 (도보 접근 포함)` 툴팁이 뜬다 (판정 반경은 지도를 축소하면 넓어지고 확대하면 좁아진다 — 최소 120 m)
+- **커서 위치의 걸리는 시간 표시** — 가까운 승강장 위에 마우스를 올리면 커서가 손가락으로 바뀌며 `역 이름 · 시간 (도보 포함)` 툴팁이 뜬다 (판정 반경은 지도를 축소하면 넓어지고 확대하면 좁아진다 — 최소 120 m)
 - **URL 공유** — `?from=시청&to=강남`처럼 주소줄을 복사하면 열자마자 같은 뷰가 보이고, 앱 안에서 출발/도착을 바꾸면 주소줄이 따라 바뀐다
-- **역 순위 탭** — 상단의 "N분 이내 N개"는 지도와 같은 실시간 계산(출발지를 바꾸면 함께 바뀐다), 그 아래 배차간격·정차 횟수·최장 완주·최원격 역 표는 Python 사전 계산 — 승강장 사이만 세는 별개의 계산이라 문 앞까지 도보를 포함하지 않는다
+- **역 순위 탭** — 상단의 "N분 안에 갈 수 있는 역 N곳"은 지도와 같은 실시간 계산(출발지를 바꾸면 함께 바뀐다), 그 아래 배차간격·정차 횟수·가장 긴 완주·가장 먼 역 표는 Python에서 미리 계산 — 승강장 사이만 세는 별개의 계산이라 문 앞까지 도보를 포함하지 않는다
 - **라이트 / 다크 / 시스템** 테마 — 시스템 설정을 따라가고 선택을 localStorage에 저장, 두 테마에서 등시선 색과 노선색을 따로 재조정
 - **모바일 레이아웃** — 지도를 풀블리드로 깔고 검색 카드를 위에 띄운다(데스크톱은 왼쪽 사이드바 + 지도 분할)
 - 서버·데이터베이스·API 키 없음 — 정적 파일과 JSON 두 개만 서빙한다
@@ -56,19 +56,19 @@ A static isochrone map of the Seoul metro — pick an origin and see how far (an
   <sub>모바일 390px · 상단 패널 + 풀블리드 지도</sub>
 </p>
 
-## 소요 시간 계산 방법
+## 시간을 계산하는 방법
 
 링과 색은 전부 **문 앞 → 문 앞** 시간이다. 두 역 사이를 잇는 간선은 **한 열차가 두 승강장에 모두 정차하는지**에서 만들고, 승차 간선이 없는 승강장쌍은 450 m 이내일 경우 도보 간선이 된다.
 
 | 항목 | 규칙 |
 | --- | --- |
-| 역간(승강장 간) 승차 시간 | KTDB 국가교통DB GTFS `stop_times.txt`에서, 한 승강장쌍에 정차한 **모든 열차의 계획 소요시간 중앙값** |
+| 역간(승강장 간) 승차 시간 | KTDB 국가교통DB GTFS `stop_times.txt`에서, 한 승강장쌍에 정차한 **모든 열차의 계획상 걸리는 시간 중앙값** |
 | 승차·환승 대기 | 승강장별 **배차간격 ÷ 2**, 1–15분으로 제한. 배차간격 = 평일 07–20시 연속 출발 간격의 중앙값(노선별 → 승강장 중앙값) |
-| 도보 | 직선거리 ÷ **75 m/분**. 출발지가 역이 아닌 임의 지점이면 반경 1.2 km 이내 승강장을 도보로 잡는다 (반경 밖 = 도달 불가) |
+| 도보 | 직선거리 ÷ **75 m/분**. 출발지가 역이 아닌 임의 지점이면 반경 1.2 km 이내 승강장을 도보로 잡는다 (반경 밖 = 못 가는 곳) |
 | 환승 | 같은 역 안 승강장 간 이동 + 다음 열차 대기 — 별도 환승 벌점은 없다 (이 저장소의 v0 정적 버전은 고정 환승 벌점을 썼지만 v1에서 없앴다) |
-| 등시선 | 250 m 격자 각 칸의 시간 = min(주변 승강장 도달시간 + 칸까지 도보) → d3-contour로 등치선을 뽑아 **닫힌 링**으로 만든다 |
+| 등시선 | 150 m 격자 각 칸의 시간 = min(주변 승강장까지 걸리는 시간 + 칸까지 도보) → d3-contour로 등치선을 뽑아 **닫힌 링**으로 만든다 |
 
-이동 시간은 `(승강장, 승차 중인 노선)` 쌍을 상태로 보는 다이익스트라로 계산한다. 대기는 노선을 **타는 순간**에만 붙고, 같은 노선 안의 이동에는 대기를 물리지 않는다. 경유 역 색·등시선·요약("N분 이내 N개")은 전부 이 결과에서 파생한다.
+이동 시간은 `(승강장, 승차 중인 노선)` 쌍을 상태로 보는 다이익스트라로 계산한다. 대기는 노선을 **타는 순간**에만 붙고, 같은 노선 안의 이동에는 대기를 물리지 않는다. 경유 역 색·등시선·요약("N분 안에 갈 수 있는 역 N곳")은 전부 이 결과에서 파생한다.
 
 **알고리즘 한계 — 이 숫자를 그대로 믿으면 안 되는 이유**
 
@@ -85,7 +85,7 @@ Vite 8 · React 19 · TypeScript 6 · Tailwind CSS 4 · shadcn/ui(Base UI) · **
 ```
 src/lib/        순수 계산 코어 — DOM·React·MapLibre를 모른다
   graph.ts      (승강장, 승차 노선) 상태 Dijkstra · nearestStops(도보 반경 검색) · timeToPoint · routeTo
-  iso.ts        250 m 도달시간 격자 → d3-contour 닫힌 링 (999 - t 트릭으로 미도달 셀 처리)
+  iso.ts        150 m 걸리는 시간 격자 → d3-contour 닫힌 링 (120 - t 트릭으로 못 가는 셀 처리)
   search.ts     역 이름 / "경도, 위도" 좌표 → Place 해석 (URL과 검색창이 같은 규칙)
   format.ts constants.ts types.ts utils.ts   포맷·색 램프, 튜닝 상수, 공용 타입
 src/map/        MapLibre와 만나는 유일한 경계

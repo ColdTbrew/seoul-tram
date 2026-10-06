@@ -1,4 +1,4 @@
-/** 순위(tab 2): rankings.json의 사전 계산 통계를 표 없이 가볍게 — Vercel 식 단행 목록. */
+/** 순위(tab 2): rankings.json의 미리 계산한 통계를 표 없이 가볍게 — 한 칸 목록. */
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { fmtTime } from "@/lib/format.ts";
 import { useRankings } from "@/hooks/useNetworkData.ts";
@@ -40,62 +40,58 @@ function fmtHeadway(min: number): string {
 function listToRows(d: RankingsData): Array<{ title: string; caption: string; rows: Array<[string, string]> }> {
   return [
     {
-      title: "주파수 최상위 (출근길 기준)",
-      caption: "평일 아침 배차간격이 짧은 노선 — 숫자 = 평균 배차간격 · 정차 승강장 수",
+      title: "배차가 잦은 노선 (출근길 기준)",
+      caption: "평일 아침 배차간격이 짧은 노선 — 숫자는 평균 배차간격과 정차 승강장 수",
       rows: d.lineHeadwayShort.map(([n, , h, stops]) => [n, `${fmtHeadway(h)} · ${stops}개 승강장`] as [string, string]),
     },
     {
-      title: "주파수 최하위",
+      title: "배차가 뜸한 노선",
       caption: "배차간격이 가장 긴 노선 — 교외선·지선급",
       rows: d.lineHeadwayLong.map(([n, , h, stops]) => [n, `${fmtHeadway(h)} · ${stops}개 승강장`] as [string, string]),
     },
     {
-      title: "계획상 정차 횟수 최다 역",
-      caption: "상·하행 모든 정차역을 센 횟수 — 환승 복잡도(정차역 4개는 한 승강장이 4개일 수 있음)와 다름",
+      title: "정차가 가장 많은 역",
+      caption: "상·하행 정차 승강장을 모두 썬 횟수 — 한 역이 여러 승강장일 수 있어 역을 세는 것과 다릅니다",
       rows: d.mostStops.map(([n, c]) => [n, `${c}회`] as [string, string]),
     },
     {
-      title: "가장 긴 완주",
-      caption: "노선 끝에서 끝까지 계획 시간표상 주행 시간",
+      title: "종점까지 가장 긴 노선",
+      caption: "노선 끝에서 끝까지 계획 시간표상 주행 시간 — 미리 계산한 값",
       rows: d.longestTrips.map(([n, , m, stops]) => [n, `${fmtTime(m)} · 정차 ${stops}회`] as [string, string]),
     },
     {
       title: "시청에서 가장 먼 역",
-      caption: "시청 출발 최적 경로의 총 시간 — 승강장 간 사전 계산(도보 접근 제외)",
+      caption: "시청 출발 가장 빠른 경로의 총 시간 — 미리 계산한 값 (승강장 사이만 · 도보 제외)",
       rows: d.farthestFromCityHall.map(([n, m]) => [n, fmtTime(m)] as [string, string]),
     },
   ];
 }
 
 interface Props {
-  /** 요약 문장의 주어 (현재 출발지 라벨) */
-  origin: string | null;
-  /** 지도와 같은 계산(useTripPlan)의 결과 — 없으면 rankings.json의 사전 계산값으로 되돈다 */
+  /** 지도와 같은 계산(useTripPlan)의 결과 — 없으면 rankings.json의 미리 계산한 값으로 되돈다 */
   summary: { withinReach: number; totalStations: number; reachMinutes: number } | null;
 }
 
-export function RankingsView({ origin, summary }: Props) {
+export function RankingsView({ summary }: Props) {
   const state = useRankings();
-  if (state.kind === "loading") return <p className="p-6 text-sm text-muted-foreground">순위 데이터 로딩 중…</p>;
-  if (state.kind === "error") return <p className="p-6 text-sm text-muted-foreground">rankings.json 로드 실패: {state.message}</p>;
+  if (state.kind === "loading") return <p className="p-6 text-sm text-muted-foreground">순위를 불러오는 중…</p>;
+  if (state.kind === "error") return <p className="p-6 text-sm text-muted-foreground">순위를 불러오지 못했습니다: {state.message}</p>;
 
   const d = state.data;
   // 지도 개요와 같은 수치가 보이게 한다 — 순위 탭의 기준값을 사전 계산(승강장·대기 제외)으로 두면
   // 같은 "시청 30분 이내"가 화면마다 145/138/120으로 갈린다.
   const head = summary
     ? {
-        from: origin ?? "출발지",
         minutes: summary.reachMinutes,
         count: summary.withinReach,
         total: summary.totalStations,
-        note: "이동 계획 패널과 같은 실시간 계산",
+        note: "이동 계획과 같은 실시간 계산",
       }
     : {
-        from: "시청",
         minutes: 30,
         count: d.reachableFromCityHall.within30,
         total: d.reachableFromCityHall.totalStations,
-        note: "시간표 기준 사전 계산(승강장 간 · 도보 접근 제외) · 그래서 지도의 실시간 계산보다 개수가 조금 더 크게 나온다",
+        note: "미리 계산한 값 (승강장 사이만 · 도보 제외)",
       };
 
   const sections = listToRows(d);
@@ -103,8 +99,8 @@ export function RankingsView({ origin, summary }: Props) {
     <div className="grid gap-3 p-3 md:grid-cols-2 xl:grid-cols-3">
       <Card className="md:col-span-2 xl:col-span-3">
         <CardContent className="flex flex-wrap gap-x-6 gap-y-1 text-xs">
-          <span className="text-muted-foreground">{head.from} 출발 {head.minutes}분 이내 도달 역 {head.count}개</span>
-          <span className="text-muted-foreground">전체 {head.total}개 역 기준</span>
+          <span className="text-muted-foreground">{head.minutes}분 안에 갈 수 있는 역 {head.count}곳</span>
+          <span className="text-muted-foreground">전체 {head.total}곳</span>
           <span className="text-muted-foreground">{head.note} · 생성일 {d.generated}</span>
         </CardContent>
       </Card>
