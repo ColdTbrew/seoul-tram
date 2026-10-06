@@ -262,7 +262,8 @@ async function init() {
 
   prepareData(app.data);
   const params = new URLSearchParams(location.search);
-  const view = { center: [proj.lat0, proj.lon0], zoom: 8 };
+  const df = app.data.meta?.defaultFrom ?? { lon: proj.lon0, lat: proj.lat0 };
+  const view = { center: [df.lat, df.lon], zoom: 11 };   // 기본: 시청역 중심, 도심이 꽉 차게 (원본과 다르게 시작 뷰만 넓게)
   if (params.get("from")) {
     const f = resolvePlace(params.get("from"));
     if (f) view.center = [f.point[1], f.point[0]];

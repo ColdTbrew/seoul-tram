@@ -46,7 +46,7 @@ function initMap(data, initialView) {
   // 등시선 (채움 래스터 + 등고선) · 정류장 점 · 경로선
   app.layers.heat = null;
   app.layers.contours = null;
-  app.layers.stops = L.layerGroup(canvasRenderer ? { renderer: canvasRenderer } : {}).addTo(map);
+  app.layers.stops = L.layerGroup().addTo(map);
   app.layers.route = L.layerGroup().addTo(map);
 
   // 출발/도착 마커
@@ -100,6 +100,9 @@ function initMap(data, initialView) {
   });
   map.on("mouseout", () => { tooltip.hidden = true; });
 
+  // 줌이 바뀌면 점 크기를 다시 맞춰 다시 그림 (줌이 크면 점도 함께 커지는 것 방지)
+  map.on("zoomend", () => { if (app.solution) rebuildStopsLayer(); });
+
   // 드래그 중에는 등시선 레이어를 옅게 (원본과 같은 동작)
   map.on("dragstart", () => { if (app.layers.heat) app.layers.heat.setOpacity(0.25); });
   map.on("dragend", () => { if (app.layers.heat) app.layers.heat.setOpacity(0.55); });
@@ -150,7 +153,7 @@ function rebuildContourLayers() {
   app.layers.contours = L.geoJSON({ type: "FeatureCollection", features }, {
     interactive: false,
     renderer: L.svg({ padding: 0.5 }),
-    style: { color: "#111", weight: 1.4, opacity: 0.5, fill: false, interactive: false },
+    style: { color: "#000", weight: 2, opacity: 0.85, fill: false, interactive: false },
   }).addTo(app.map);
 }
 
@@ -159,20 +162,23 @@ function rebuildContourLayers() {
 function rebuildStopsLayer() {
   app.layers.stops.clearLayers();
   if (!app.solution) return;
-  const canvasRenderer = L.canvas({ padding: 0.5 });
+  if (!app.layers.stopRenderer) app.layers.stopRenderer = L.canvas({ padding: 0.5 });
+  const zoom = app.map.getZoom();
+  const r = zoom >= 13 ? 4 : zoom >= 11 ? 3 : 2.4;          // 줌이 낮을수록 점을 작게 (밀집 시 뭉침 방지)
+  const stroke = zoom >= 13 ? 0.8 : 0.45;                     // 테두리는 얇게/옅게
   for (let i = 0; i < STOPS.length; i += 1) {
     const s = STOPS[i];
     const t = app.solution.timeAt[i];
     const finite = Number.isFinite(t);
     L.circleMarker([s.lat, s.lon], {
-      radius: 4,
+      radius: r,
       color: "#111111",
-      weight: 0.8,
-      opacity: finite ? 0.35 : 0.12,
-      fillOpacity: finite ? 0.75 : 0.25,
+      weight: stroke,
+      opacity: finite ? 0.45 : 0.15,
+      fillOpacity: finite ? 0.85 : 0.3,
       fillColor: finite ? `rgb(${paletteColor(clamp(t / app.maxMinutes, 0, 1)).join(",")})` : "#7d848b",
       interactive: false,
-      renderer: canvasRenderer,
+      renderer: app.layers.stopRenderer,
     }).addTo(app.layers.stops);
   }
 }

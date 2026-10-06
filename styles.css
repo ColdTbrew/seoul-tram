@@ -144,7 +144,7 @@ body { display: flex; flex-direction: column; }
 .legend-notes li { display: flex; gap: 8px; align-items: center; margin: 3px 0; }
 .legend-notes .dot { width: 10px; height: 10px; border-radius: 999px; flex: none; }
 .legend-notes .line-sample { width: 18px; height: 3px; background: #7a8471; border-radius: 2px; flex: none; }
-.legend-notes .contour-sample { width: 18px; height: 0; border-top: 1.6px solid #111; flex: none; }
+.legend-notes .contour-sample { width: 18px; height: 0; border-top: 2.2px solid #000; flex: none; }
 
 .iso-toggles { display: flex; flex-wrap: wrap; gap: 6px 12px; font-size: 13px; margin-top: 4px; }
 .iso-toggles label { display: inline-flex; gap: 4px; align-items: center; }
