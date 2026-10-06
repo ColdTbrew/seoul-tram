@@ -1,6 +1,8 @@
-/** App 셸: 탭(등시선/순위/안내) + URL 상태(?from=&to=) + 데스크톱 사이드바/모바일 풀블리드 맵.
+/** App 셸: 탭(등시선/순위/안내) + URL 상태(?from=&to=) + 전체 폭 지도 위에 떠 있는 접이식 패널.
  * 순수 파생(Dijkstra/격자/링)은 useTripPlan, 지도 명령형 상호작용은 MapCanvas — 여기는 배선만. */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { SlidersHorizontal } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { MapCanvas, type MapPick } from "./map/MapCanvas.tsx";
 import { TripPanel } from "./components/TripPanel.tsx";
 import { RankingsView } from "./components/RankingsView.tsx";
@@ -15,6 +17,8 @@ import { routeTo } from "./lib/graph.ts";
 import type { Place } from "./lib/types.ts";
 
 const DEFAULT_FOCUS = 30;
+/** 패널 열린/닫힘 상태를 탭 전환·새로고침을 넘어 유지 (기본 열림). */
+const PANEL_KEY = "seoul-tram:panel";
 type Tab = "iso" | "rank" | "about";
 
 const TABS: Array<{ id: Tab; label: string }> = [
@@ -32,6 +36,14 @@ export default function App() {
   const [focus, setFocus] = useState<number>(DEFAULT_FOCUS);
   const [resetSignal, setResetSignal] = useState(0);
   const inited = useRef(false);
+  const [panelOpen, setPanelOpenState] = useState(() => sessionStorage.getItem(PANEL_KEY) !== "closed");
+  const setPanelOpen = useCallback((v: boolean) => {
+    setPanelOpenState(v);
+    sessionStorage.setItem(PANEL_KEY, v ? "open" : "closed");
+  }, []);
+  // 접기는 한 번만: 지도를 직접 움직이거나 닫기 버튼을 누르거나. 다시 여는 건 사용자의 클릭뿐.
+  const onUserMove = useCallback(() => setPanelOpen(false), [setPanelOpen]);
+  const closePanel = useCallback(() => setPanelOpen(false), [setPanelOpen]);
 
   // ?from=&to= 복원(북마크/공유 링크) — 데이터 준비 뒤 1회
   useEffect(() => {
@@ -111,6 +123,7 @@ export default function App() {
       onFocus={setFocus}
       summary={plan.summary}
       route={route}
+      onClose={closePanel}
     />
   );
 
@@ -137,34 +150,60 @@ export default function App() {
       </header>
 
       {tab === "iso" && (
-        <main className="relative flex min-h-0 flex-1 flex-col lg:flex-row">
-          <aside className="hidden w-80 shrink-0 overflow-y-auto border-r border-border lg:block">
-            <div className="flex h-full flex-col gap-3 p-3">
+        <main className="relative min-h-0 flex-1 overflow-hidden">
+          <MapCanvas
+            model={model}
+            resolved={resolved}
+            solution={plan.solution}
+            grid={plan.grid}
+            focus={focus}
+            contours={plan.contours}
+            stopsFC={plan.stopsFC}
+            route={route}
+            origin={origin?.point ?? null}
+            dest={dest?.point ?? null}
+            onPick={onPick}
+            resetSignal={resetSignal}
+            onUserMove={onUserMove}
+          />
+
+          {/* 데스크톱(lg 이상): 지도 위에 떠 있는 패널. 접으면 지도가 다시 전체 폭을 쓰고 클릭이 통과한다. */}
+          <div
+            className={`absolute left-3 top-3 bottom-3 z-20 hidden w-80 flex-col gap-3 overflow-y-auto rounded-xl border border-border bg-background/95 p-3 shadow-sm backdrop-blur transition-[transform,opacity] duration-300 ease-out ${
+              panelOpen ? "lg:flex translate-x-0 opacity-100" : "pointer-events-none hidden -translate-x-[calc(100%+1rem)] opacity-0"
+            }`}
+          >
+            {searchPanel}
+            <IsochroneLegend focus={focus} />
+            <LineLegend lines={model.data.lines} />
+          </div>
+
+          {/* 모바일(lg 미만): 아래에서 올라오는 시트. 손잡이 = 스크롤 영역의 일부로 함께 올라간다. */}
+          <div
+            className={`absolute inset-x-0 bottom-0 z-20 flex max-h-[55dvh] flex-col overflow-hidden rounded-t-2xl border-t border-border bg-background/95 pb-[env(safe-area-inset-bottom)] shadow-lg backdrop-blur transition-transform duration-300 ease-out lg:hidden ${
+              panelOpen ? "translate-y-0" : "pointer-events-none translate-y-full"
+            }`}
+          >
+            <div className="mx-auto mt-2 h-1 w-10 shrink-0 rounded-full bg-muted-foreground/30" />
+            <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-3 pb-3 pt-2">
               {searchPanel}
               <IsochroneLegend focus={focus} />
-              <LineLegend lines={model.data.lines} />
-            </div>
-          </aside>
-          <div className="relative min-h-0 w-full min-w-0 flex-1 lg:w-auto">
-            <MapCanvas
-              model={model}
-              resolved={resolved}
-              solution={plan.solution}
-              grid={plan.grid}
-              focus={focus}
-              contours={plan.contours}
-              stopsFC={plan.stopsFC}
-              route={route}
-              origin={origin?.point ?? null}
-              dest={dest?.point ?? null}
-              onPick={onPick}
-              resetSignal={resetSignal}
-            />
-            {/* 모바일: 풀블리드 맵 위 부상 검색 카드 (지도 아래쪽은 터치 유지) */}
-            <div className="absolute inset-x-3 top-3 z-20 max-h-[52dvh] overflow-y-auto rounded-xl border border-border bg-background/95 shadow-sm backdrop-blur lg:hidden">
-              {searchPanel}
             </div>
           </div>
+
+          {/* 닫힌 뒤에는 이것만 지도 위에 남는다 (열림 때는 투명+클릭 통과 → 지도가 곧바로 받는다) */}
+          <Button
+            variant="outline"
+            size="icon"
+            aria-label="패널 열기"
+            title="패널 열기"
+            onClick={() => setPanelOpen(true)}
+            className={`absolute left-3 top-3 z-20 transition-opacity duration-300 ${
+              panelOpen ? "pointer-events-none opacity-0" : ""
+            }`}
+          >
+            <SlidersHorizontal className="size-4" />
+          </Button>
         </main>
       )}
 

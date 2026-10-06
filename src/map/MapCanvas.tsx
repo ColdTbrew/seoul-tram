@@ -9,7 +9,7 @@
  * '이번 스타일 페인트가 미완료'를 판정(지체 카운트 없음 — 느린 회피에서도 정확), (3) styleReadyRef.current
  * 가 false인 동안 styledata가 오면 styleReadyRef.current = false 를 복원한다. */
 import { useEffect, useRef, useState } from "react";
-import { LngLatBounds, Marker as MLMarker, Map as MLMap, setWorkerUrl } from "maplibre-gl";
+import { LngLatBounds, Marker as MLMarker, Map as MLMap, setWorkerUrl, type MapMovementEvent } from "maplibre-gl";
 import workerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url";
 import { fmtTime } from "@/lib/format.ts";
 import { nearestStops, timeToPoint, toLL } from "@/lib/graph.ts";
@@ -34,6 +34,8 @@ interface Props {
   dest: LngLat | null;
   onPick: (pick: MapPick) => void;
   resetSignal: number;
+  /** 사용자가 지도를 직접 움직였을 때(드래그/핀치/휠 줌/회전). 프로그램적 이동(fitBounds)은 오지 않는다. */
+  onUserMove?: () => void;
 }
 
 /** 줌/위도 → 화면 16px 상당의 m 반경 (클릭·호버 히트 반경, v0과 같은 근사식) */
@@ -225,10 +227,22 @@ export function MapCanvas(props: Props) {
     map.on("dragstart", () => setIsoOpacity(true));
     map.on("dragend", () => setIsoOpacity(false));
 
+    // 사용자 조작과 프로그램적 이동을 originalEvent 유무로 가린다 (fitBounds/flyTo 는 originalEvent 없음).
+    // 접히기 전의 뷰 조작과 달리 프로그램적 맞춤(경로 fitBounds·초기화)은 패널을 닫지 않는다.
+    const onMoveStart = (e: MapMovementEvent) => {
+      if (e.originalEvent) propsRef.current.onUserMove?.();
+    };
+    map.on("movestart", onMoveStart);
+    map.on("zoomstart", onMoveStart);
+    map.on("rotatestart", onMoveStart);
+
     return () => {
       window.clearTimeout(styleTimer);
       map.off("style.load", onStyleLoaded);
       map.off("idle", onIdle);
+      map.off("movestart", onMoveStart);
+      map.off("zoomstart", onMoveStart);
+      map.off("rotatestart", onMoveStart);
       markerFromRef.current?.remove();
       markerToRef.current?.remove();
       markerFromRef.current = null;
