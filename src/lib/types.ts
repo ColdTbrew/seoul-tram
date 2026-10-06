@@ -44,13 +44,17 @@ export interface RawStation {
   lat: number;
 }
 
-export interface NetworkData {
+export interface NetworkMeta {
   name: string;
   walkSpeed: number;
   accessRadius: number;
   defaultFrom: { lon: number; lat: number; name: string };
   sources: string;
   generated: string;
+}
+
+export interface NetworkData {
+  meta: NetworkMeta;
   stops: RawStop[];
   edges: RawEdge[];
   lines: RawLine[];

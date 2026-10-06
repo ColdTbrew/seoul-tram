@@ -23,7 +23,7 @@ export function parseCoords(data: NetworkData, text: string): LngLat | null {
   const lon = Number(m[1]);
   const lat = Number(m[2]);
   if (!Number.isFinite(lon) || !Number.isFinite(lat)) return null;
-  if (Math.abs(lat - data.defaultFrom.lat) > 2 || Math.abs(lon - data.defaultFrom.lon) > 2) return null;
+  if (Math.abs(lat - data.meta.defaultFrom.lat) > 2 || Math.abs(lon - data.meta.defaultFrom.lon) > 2) return null;
   return [lon, lat];
 }
 

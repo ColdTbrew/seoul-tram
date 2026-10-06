@@ -101,7 +101,7 @@ export function MapCanvas(props: Props) {
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
     const p = propsRef.current;
-    const start = p.origin ?? [p.model.data.defaultFrom.lon, p.model.data.defaultFrom.lat];
+    const start = p.origin ?? [p.model.data.meta.defaultFrom.lon, p.model.data.meta.defaultFrom.lat];
     const map = new maplibregl.Map({
       container: containerRef.current,
       style: basemapUrl(p.resolved, false),
