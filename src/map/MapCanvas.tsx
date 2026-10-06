@@ -124,7 +124,18 @@ export function MapCanvas(props: Props) {
       if (pts.length >= 2) {
         const bounds = new LngLatBounds(pts[0]!, pts[0]!);
         for (const pt of pts) bounds.extend(pt);
-        map.fitBounds(bounds, { padding: 40, maxZoom: 15, duration: 350 });
+        // 여백은 "패널을 뺀 남은 영역"의 18% (최소 32px) — maxZoom은 한 단계 덜 확대.
+        const c = map.getContainer();
+        const pp = p.padding ?? { left: 0, bottom: 0 }; // 패널이 가리는 몫 (이미 map padding으로 걸려 있음)
+        const freeW = Math.max(1, c.clientWidth - pp.left);
+        const freeH = Math.max(1, c.clientHeight - pp.bottom);
+        const padX = Math.max(32, Math.round(freeW * 0.18));
+        const padY = Math.max(32, Math.round(freeH * 0.18));
+        map.fitBounds(bounds, {
+          padding: { top: padY, bottom: padY, left: padX, right: padX },
+          maxZoom: 14,
+          duration: 350,
+        });
       }
       }
     } catch (e) {
