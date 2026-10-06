@@ -20,7 +20,7 @@ A static isochrone map of the Seoul metro — pick an origin and see how far (an
 
 원작은 **« À portée de tram »**([tram.camilleroux.com](https://tram.camilleroux.com/), MIT © Camille Roux) — 집에서 몇 분 안에 어디까지 갈 수 있는지 보여주는 프랑스 트램용 시각화다. 그 **비용 모델**(도보 + 대기 + 승차를 합친 도달 시간, 역 색칠과 닫힌 등시선을 위한 시간 기반 색)을 서울 지하철 규모에 맞게 서울판으로 다시 만들었다.
 
-서울 쪽으로 새로 만든 것은 이 세 가지다. ① **그래프의 노드는 역이 아니라 승강장**이다 — 같은 역의 상·하행 승강장이 50~200 m 떨어져 있고 호선별로 다른 stop_id를 쓰기 때문에, 승강장을 노드로 두면 개찰구를 나서서 다른 호선으로 갈아타는 시간이 자동으로 계산에 들어간다. ② **역간 소요시간과 배차간격을 KTDB 국가교통DB GTFS에서 추정**한다 — 원작의 «Modèle»을 서울 데이터에 맞게 적용한 것이다. ③ 한글 역 이름·승강장 표기 검색, 노선색, 경로 카드, 라이트/다크 재조정이 필요했다.
+서울 쪽으로 새로 만든 것은 이 세 가지다. ① **그래프의 노드는 역이 아니라 승강장**이다 — 같은 역의 상·하행 승강장이 50–200 m 떨어져 있고 호선별로 다른 stop_id를 쓰기 때문에, 승강장을 노드로 두면 개찰구를 나서서 다른 호선으로 갈아타는 시간이 자동으로 계산에 들어간다. ② **역간 소요시간과 배차간격을 KTDB 국가교통DB GTFS에서 추정**한다 — 원작의 «Modèle»을 서울 데이터에 맞게 적용한 것이다. ③ 한글 역 이름·승강장 표기 검색, 노선색, 경로 카드, 라이트/다크 재조정이 필요했다.
 
 > **English.** This is a Seoul re-implementation of [À portée de tram](https://tram.camilleroux.com/) by Camille Roux, sharing its cost model (walk + wait + ride, colours keyed to travel time, closed isochrone rings). **Platforms** — not stations — are the graph nodes, so leaving the paid area for a transfer and walking from your door to the platform both cost time, with no hand-tuned interchange penalties. Ride times and headways are derived from the KTDB national GTFS feed instead of a curated timetable, and isochrones are built as closed contours from a 250 m time grid. The app has three tabs: isochrones, station rankings, and about.
 
@@ -63,7 +63,7 @@ A static isochrone map of the Seoul metro — pick an origin and see how far (an
 | 항목 | 규칙 |
 | --- | --- |
 | 역간(승강장 간) 승차 시간 | KTDB 국가교통DB GTFS `stop_times.txt`에서, 한 승강장쌍에 정차한 **모든 열차의 계획 소요시간 중앙값** |
-| 승차·환승 대기 | 승강장별 **배차간격 ÷ 2**, 1~15분으로 제한. 배차간격 = 평일 07~20시 연속 출발 간격의 중앙값(노선별 → 승강장 중앙값) |
+| 승차·환승 대기 | 승강장별 **배차간격 ÷ 2**, 1–15분으로 제한. 배차간격 = 평일 07–20시 연속 출발 간격의 중앙값(노선별 → 승강장 중앙값) |
 | 도보 | 직선거리 ÷ **75 m/분**. 출발지가 역이 아닌 임의 지점이면 반경 1.2 km 이내 승강장을 도보로 잡는다 (반경 밖 = 도달 불가) |
 | 환승 | 같은 역 안 승강장 간 이동 + 다음 열차 대기 — 별도 환승 벌점은 없다 (이 저장소의 v0 정적 버전은 고정 환승 벌점을 썼지만 v1에서 없앴다) |
 | 등시선 | 250 m 격자 각 칸의 시간 = min(주변 승강장 도달시간 + 칸까지 도보) → d3-contour로 등치선을 뽑아 **닫힌 링**으로 만든다 |
@@ -74,7 +74,7 @@ A static isochrone map of the Seoul metro — pick an origin and see how far (an
 
 - 실시간이 아니다. 시간대·요일 구분 없는 상시 평균이라 퇴근길·주말·첫차 막차 시간이 틀린다.
 - 급행·완행·직결을 한 승강장쌍에 평균으로 합친다 — 9호선 급행처럼 정차 패턴이 다른 트립이 완행 시간과 섞이며, 여러 노선이 지나는 승강장쌍은 그중 한 노선으로 처리한다.
-- GTFS에서 추정한 배차간격이라 공식 시간표와 다를 수 있다. 이 피드의 트립은 "열차 1대"가 아니라 단순화된 계획 패턴이라(한 트립이 같은 정류장을 수십 번 지남) 07~20시 전체를 평탄한 배차로 본다 — 그래서 배차간격은 실제보다 짧게, 승차 시간은 완행/급행 평균으로 나온다.
+- GTFS에서 추정한 배차간격이라 공식 시간표와 다를 수 있다. 이 피드의 트립은 "열차 1대"가 아니라 단순화된 계획 패턴이라(한 트립이 같은 정류장을 수십 번 지남) 07–20시 전체를 평탄한 배차로 본다 — 그래서 배차간격은 실제보다 짧게, 승차 시간은 완행/급행 평균으로 나온다.
 - 도보 거리는 직선거리다 — 강·언덕·담장·개찰구를 무시하고, 1.2 km를 직선으로 떨어지면 지도 위에 원형 공백이 생긴다.
 - 순위 탭의 표들은 이 계산과 **별개로** 시간표 평균을 Python에서 사전 계산한 값이다 (정차 횟수·배차간격·최장 완주 — 승강장 사이만 센다). 그래서 이 표들의 숫자는 지도와 같은 조건으로 계산한 값이 아니다.
 
