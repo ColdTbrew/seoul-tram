@@ -1,67 +1,41 @@
-/** 범례 카드는 두 덩어리 — 등시선 색(어디까지 걸음+대기+탑승 기준)과 노선 색. */
+/** 범례 카드는 두 덩어리 — 등시선 밴드 색(어디까지 걸음+대기+탑승 기준)과 노선 색.
+ * 밴드 색은 지도(fill/점)와 같은 상수(BAND_COLORS_*)를 쓰므로 범례와 지도가 항상 같은 색을 가리킨다. */
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { DEFAULT_MAX, PALETTE } from "@/lib/constants.ts";
-import { fmtTime } from "@/lib/format.ts";
+import { BANDS, BAND_COLORS_DARK, BAND_COLORS_LIGHT, FAR_HEX } from "@/lib/constants.ts";
+import { useTheme } from "@/hooks/useTheme.tsx";
 
-const RAMP_SAMPLES: Array<{ label: string; t: number }> = [
-  { label: "가장 가까움", t: 0 },
-  { label: "약 25분", t: 0.55 },
-  { label: `약 ${DEFAULT_MAX}분 이상`, t: 1.05 },
-  { label: "도보·대기·탑승 없이 도달 불가", t: 2 },
-];
+/** 등시선 5밴드 + 도달 불가. 지금 강조(focus) 중인 밴드는 테두리로 표시한다. */
+export function IsochroneLegend({ focus }: { focus: number }) {
+  const { resolved } = useTheme();
+  const C = resolved === "dark" ? BAND_COLORS_DARK : BAND_COLORS_LIGHT;
 
-function rampColor(t: number): string {
-  if (t > 1) return "rgb(154,160,166)";
-  for (let i = 1; i < PALETTE.length; i += 1) {
-    const [stop, color] = PALETTE[i]!;
-    if (t <= stop) {
-      const [p, prev] = PALETTE[i - 1]!;
-      const f = (t - p) / (stop - p);
-      return `rgb(${prev.map((c, k) => Math.round(c + (color[k] - c) * f)).join(",")})`;
-    }
-  }
-  return "rgb(154,160,166)";
-}
-
-export function IsochroneLegend({ isos }: { isos: number[] }) {
   return (
     <Card>
       <CardHeader>
         <CardTitle className="text-sm">등시선 · 색</CardTitle>
       </CardHeader>
       <CardContent className="space-y-2 text-xs">
-        <div className="flex items-center gap-1">
-          {isos.length === 0 && <span className="text-muted-foreground">등시선 없음 — 체크하면 지도에 윤곽이 나타납니다.</span>}
-          {isos.map((t) => (
-            <span
-              key={t}
-              className="rounded-sm border border-border/60 bg-secondary px-1.5 py-0.5 font-mono text-[11px] text-secondary-foreground"
-            >
-              ≤{t}분
-            </span>
-          ))}
-        </div>
-        <div className="flex h-2.5 overflow-hidden rounded-sm">
-          {[0, 0.25, 0.5, 0.75, 1].map((t) => (
-            <div key={t} className="h-full flex-1" style={{ background: rampColor(t) }} />
-          ))}
-        </div>
-        <div className="flex justify-between text-[11px] text-muted-foreground">
-          <span>가까움 · {fmtTime(DEFAULT_MAX * 0.5)} 이내</span>
-          <span>멂 · {DEFAULT_MAX}분</span>
-        </div>
-        <div className="flex items-center gap-2 pt-1 text-[11px] text-muted-foreground">
-          {RAMP_SAMPLES.slice(2).map((s) => (
-            <span key={s.label} className="inline-flex items-center gap-1">
+        <div className="flex items-end gap-1">
+          {BANDS.map((t, i) => (
+            <span key={t} className="flex min-w-0 flex-1 flex-col items-center gap-1">
+              <span className="text-[10px] text-muted-foreground">{t}분</span>
               <span
-                className="size-2.5 rounded-full"
-                style={{ background: rampColor(s.t), opacity: s.t > 1.5 ? 0.35 : 0.85 }}
+                className={`h-2.5 w-full rounded-sm ${
+                  focus === t ? "ring-1 ring-foreground ring-offset-1 ring-offset-background" : ""
+                }`}
+                style={{ background: C[i] }}
               />
-              {s.label}
             </span>
           ))}
         </div>
+        <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+          <span className="size-2.5 shrink-0 rounded-sm" style={{ background: FAR_HEX, opacity: 0.45 }} />
+          90분 넘음 · 못 감 (회색) — 지도의 역 점도 같은 색입니다
+        </div>
+        <p className="text-[11px] text-muted-foreground">
+          진할수록 가깝습니다. {focus}분 밴드가 강조 중입니다 — 지도에서 굵은 윤곽과 "15분" 같은 경계 라벨로 표시됩니다.
+        </p>
       </CardContent>
     </Card>
   );

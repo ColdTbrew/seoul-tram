@@ -1,12 +1,11 @@
 /** MapLibre 커스텀 페인트 팩토리. MapLibre API 잔기술(소스/레이어키/expression)은
  * 이 파일과 MapCanvas.tsx 안에 봉인한다. 좌표는 LngLat=[경도,위도] = GeoJSON 순서와 동일해 변환 불필요.
- * 레이어 추가 순서(아래→위): iso-fill → iso-line → lines → stations → route. */
+ * 레이어 추가 순서(아래→위): iso-fill → iso-line → iso-focus → iso-label → lines → stations → route-casing → route. */
 import type { Map as MLMap } from "maplibre-gl";
-import { PALETTE, FAR_COLOR } from "@/lib/constants.ts";
-import { rgb } from "@/lib/format.ts";
+import { BANDS, BAND_COLORS_DARK, BAND_COLORS_LIGHT, FAR_HEX } from "@/lib/constants.ts";
 import type { GeoFC, GeoLine, GeoMultiPolygon, GeoPoint, GraphModel, Route } from "@/lib/types.ts";
 
-export const LAYER_IDS = ["iso-fill", "iso-line", "lines", "stations", "route-casing", "route"] as const;
+export const LAYER_IDS = ["iso-fill", "iso-line", "iso-focus", "iso-label", "lines", "stations", "route-casing", "route"] as const;
 const SOURCE_IDS = ["iso", "lines", "stations", "route"] as const;
 
 /** 테마 전환(setStyle)·재페인트 전 커스텀 레이어 제거 — 재로딩된 스타일엔 커스텀 레이어가 사라진 뒤다. */
@@ -15,21 +14,28 @@ export function resetCustomLayers(map: MLMap) {
   for (const sid of SOURCE_IDS) if (map.getSource(sid)) map.removeSource(sid);
 }
 
-/** 시간 → 색 램프 (t/max 정규화, 음수/초과는 회색). */
-const ramp = (max: number) =>
-  ["interpolate", ["linear"], ["/", ["get", "t"], max], ...PALETTE.flatMap(([f, c]) => [f, rgb(c)])];
-
-/** 등시선: 스무딩된 닫힌 링 MultiPolygon(구멍 포함 가능) → fill(반투명) + line(테두리 강조). */
-export function paintIso(map: MLMap, fc: GeoFC<GeoMultiPolygon, { t: number }>, max: number, dark: boolean) {
+/** 등시선 5밴드(15/30/45/60/90분)를 아래에서 위로 쌓는다: fill(중첩될수록 진함) → 얇은 윤곽 →
+ * 강조 밴드 → 경계 라벨. 링은 스무딩된 닫힌 MultiPolygon(구멍 포함 가능)이고 features는 T 큰 순서. */
+export function paintIso(
+  map: MLMap,
+  fc: GeoFC<GeoMultiPolygon, { t: number; band: number }>,
+  focus: number,
+  dark: boolean,
+) {
   if (!fc.features.length) return;
-  map.addSource("iso", { type: "geojson", data: fc as never });
+  const C = dark ? BAND_COLORS_DARK : BAND_COLORS_LIGHT;
+  const bandColor = ["match", ["get", "band"], 0, C[0], 1, C[1], 2, C[2], 3, C[3], C[4]];
+  const join = { "line-join": "round", "line-cap": "round" };
+
+  map.addSource("iso", { type: "geojson", data: fc as never } as never);
   map.addLayer({
     id: "iso-fill",
     type: "fill" as const,
     source: "iso",
     paint: {
-      "fill-color": ramp(max) as never,
-      "fill-opacity": dark ? 0.36 : 0.3,
+      "fill-color": bandColor,
+      "fill-opacity": dark ? 0.16 : 0.14,
+      "fill-antialias": true,
     },
   } as never);
   map.addLayer({
@@ -37,9 +43,39 @@ export function paintIso(map: MLMap, fc: GeoFC<GeoMultiPolygon, { t: number }>, 
     type: "line" as const,
     source: "iso",
     paint: {
-      "line-color": ramp(max) as never,
-      "line-width": 1.2,
-      "line-opacity": dark ? 0.8 : 0.75,
+      "line-color": dark ? bandColor : "#ffffff",
+      "line-width": dark ? 1 : 1.25,
+      "line-opacity": dark ? 0.55 : 0.95,
+    },
+    layout: join,
+  } as never);
+  map.addLayer({
+    id: "iso-focus",
+    type: "line" as const,
+    source: "iso",
+    filter: ["==", ["get", "t"], focus],
+    paint: { "line-color": C[0], "line-width": 2, "line-opacity": 0.9 },
+    layout: join,
+  } as never);
+  // 밴드 경계를 따라 "15분" … — 폰트 스택은 CARTO 스타일이 실제로 쓰는 것 (다른 이름은 글리프 404)
+  map.addLayer({
+    id: "iso-label",
+    type: "symbol" as const,
+    source: "iso",
+    minzoom: 10,
+    layout: {
+      "symbol-placement": "line",
+      "symbol-spacing": 420,
+      "text-field": ["concat", ["to-string", ["get", "t"]], "분"],
+      "text-font": ["Montserrat Medium", "Open Sans Bold", "Noto Sans Regular", "HanWangHeiLight Regular", "NanumBarunGothic Regular"],
+      "text-size": 11,
+      "text-keep-upright": true,
+      "text-max-angle": 30,
+    },
+    paint: {
+      "text-color": dark ? "#c8fff3" : "#0b3d91",
+      "text-halo-color": dark ? "#000000" : "#ffffff",
+      "text-halo-width": 1.5,
     },
   } as never);
 }
@@ -77,23 +113,22 @@ export function paintLines(map: MLMap, model: GraphModel, dark: boolean) {
 
 /** 정류장 점: 원(circle) 레이어, 색 = 도달 시간 램프(음수/초과 = 회색).
  * 반경은 줌 10:2.5 → 12:4 → 14:6 보간 + 1px 흰 테두리 — 노선 선층 바로 위에 떠서 구분된다. */
-export function paintStops(map: MLMap, fc: GeoFC<GeoPoint, { t: number; name: string }>, max: number, dark: boolean) {
+/** 정류장 점: 원(circle) 레이어, 색 = 밴드와 같은 계단식 색 (음수/90분 초과 = 회색).
+ * 반경은 줌 10:2.5 → 12:4 → 14:6 보간 + 1px 흰 테두리 — 노선 선층 바로 위에 떠서 구분된다. */
+export function paintStops(map: MLMap, fc: GeoFC<GeoPoint, { t: number; name: string }>, dark: boolean) {
   if (!fc.features.length) return;
-  map.addSource("stations", { type: "geojson", data: fc as never });
+  const C = dark ? BAND_COLORS_DARK : BAND_COLORS_LIGHT;
+  const steps: unknown[] = ["case", ["<", ["get", "t"], 0], FAR_HEX];
+  for (let i = 0; i < BANDS.length; i += 1) steps.push(["<=", ["get", "t"], BANDS[i]], C[i]);
+  steps.push(FAR_HEX);
+  map.addSource("stations", { type: "geojson", data: fc as never } as never);
   map.addLayer({
     id: "stations",
     type: "circle" as const,
     source: "stations",
     paint: {
       "circle-radius": ["interpolate", ["linear"], ["zoom"], 10, 2.5, 12, 4, 14, 6] as never,
-      "circle-color": [
-        "case",
-        ["<", ["get", "t"], 0],
-        rgb(FAR_COLOR),
-        [">", ["get", "t"], max],
-        rgb(FAR_COLOR),
-        ramp(max),
-      ] as never,
+      "circle-color": steps,
       "circle-opacity": 0.85,
       "circle-stroke-width": 1,
       "circle-stroke-color": "#ffffff",

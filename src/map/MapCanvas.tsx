@@ -25,8 +25,9 @@ interface Props {
   resolved: Resolved;
   solution: Solution | null;
   grid: IsoGrid | null;
-  maxMinutes: number;
-  contours: GeoFC<GeoMultiPolygon, { t: number }>;
+  /** 강조 중인 밴드 (분). 등시선 5개는 항상 다 그려지고, 이 밴드만 윤곽/라벨로 강조한다. */
+  focus: number;
+  contours: GeoFC<GeoMultiPolygon, { t: number; band: number }>;
   stopsFC: GeoFC<GeoPoint, { t: number; name: string }>;
   route: Route | null;
   origin: LngLat | null;
@@ -79,9 +80,9 @@ export function MapCanvas(props: Props) {
 
     try {
       resetCustomLayers(map);
-    paintIso(map, p.contours, p.maxMinutes, p.resolved === "dark");
+    paintIso(map, p.contours, p.focus, p.resolved === "dark");
     paintLines(map, p.model, p.resolved === "dark");
-    paintStops(map, p.stopsFC, p.maxMinutes, p.resolved === "dark");
+    paintStops(map, p.stopsFC, p.resolved === "dark");
     if (p.route) paintRoute(map, p.model, p.route, p.resolved === "dark");
 
     const dark = p.resolved === "dark";
@@ -214,16 +215,16 @@ export function MapCanvas(props: Props) {
     });
     map.on("mouseout", () => setTooltip(null));
 
-    // 드래그 중 등시선 옅게 (v0 동작 유지)
+    // 드래그 중 등시선 옅게 (v0 동작 유지) — 기준값은 paintIso 의 새 페인트와 맞춘다
     const setHeatOpacity = (fill: number, line: number) => {
       if (!map.getLayer("iso-fill")) return;
       map.setPaintProperty("iso-fill", "fill-opacity", fill);
       map.setPaintProperty("iso-line", "line-opacity", line);
     };
-    map.on("dragstart", () => setHeatOpacity(0.1, 0.15));
+    map.on("dragstart", () => setHeatOpacity(0.06, 0.1));
     map.on("dragend", () => {
       const dark = propsRef.current.resolved === "dark";
-      setHeatOpacity(dark ? 0.36 : 0.3, dark ? 0.8 : 0.75);
+      setHeatOpacity(dark ? 0.16 : 0.14, dark ? 0.55 : 0.95);
     });
 
     return () => {
@@ -261,7 +262,7 @@ export function MapCanvas(props: Props) {
   // 3) 데이터/설정 변경 → 전체 재페인트 (스타일 로딩이 진행 중이면 styledata/style.load/idle 체인이 그린다)
   useEffect(() => {
     repaintRef.current();
-  }, [props.grid, props.maxMinutes, props.contours, props.stopsFC, props.route, props.origin, props.dest]);
+  }, [props.grid, props.focus, props.contours, props.stopsFC, props.route, props.origin, props.dest]);
 
   // 4) 초기화 버튼 → 전체 등시선 영역이 보이게 다시 맞춤
   useEffect(() => {

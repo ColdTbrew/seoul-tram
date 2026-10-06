@@ -12,10 +12,9 @@ import { useTheme } from "./hooks/useTheme.tsx";
 import { useTripPlan } from "./hooks/useTripPlan.ts";
 import { defaultOrigin, resolveQuery } from "./lib/search.ts";
 import { routeTo } from "./lib/graph.ts";
-import { DEFAULT_MAX } from "./lib/constants.ts";
 import type { Place } from "./lib/types.ts";
 
-const DEFAULT_ISOS = [30];
+const DEFAULT_FOCUS = 30;
 type Tab = "iso" | "rank" | "about";
 
 const TABS: Array<{ id: Tab; label: string }> = [
@@ -30,7 +29,7 @@ export default function App() {
   const [tab, setTab] = useState<Tab>("iso");
   const [origin, setOrigin] = useState<Place | null>(null);
   const [dest, setDest] = useState<Place | null>(null);
-  const [isos, setIsos] = useState<number[]>(DEFAULT_ISOS);
+  const [focus, setFocus] = useState<number>(DEFAULT_FOCUS);
   const [resetSignal, setResetSignal] = useState(0);
   const inited = useRef(false);
 
@@ -56,8 +55,7 @@ export default function App() {
     window.history.replaceState(null, "", `${window.location.pathname}${qs ? `?${qs}` : ""}`);
   }, [origin, dest]);
 
-  const bounds = useMemo(() => ({ max: Math.max(DEFAULT_MAX, ...isos), isos }), [isos]);
-  const plan = useTripPlan(model, origin, bounds);
+  const plan = useTripPlan(model, origin, focus);
 
   const route = useMemo(
     () => (model && origin && dest && plan.solution ? routeTo(model, plan.solution, origin.point, dest.point) : null),
@@ -82,7 +80,7 @@ export default function App() {
     if (!model) return;
     setOrigin(defaultOrigin(model.data));
     setDest(null);
-    setIsos(DEFAULT_ISOS);
+    setFocus(DEFAULT_FOCUS);
     setResetSignal((n) => n + 1);
   }, [model]);
 
@@ -109,8 +107,8 @@ export default function App() {
       onDest={setDest}
       swap={swap}
       reset={reset}
-      isos={isos}
-      onIsos={setIsos}
+      focus={focus}
+      onFocus={setFocus}
       summary={plan.summary}
       route={route}
     />
@@ -143,7 +141,7 @@ export default function App() {
           <aside className="hidden w-80 shrink-0 overflow-y-auto border-r border-border lg:block">
             <div className="flex h-full flex-col gap-3 p-3">
               {searchPanel}
-              <IsochroneLegend isos={isos} />
+              <IsochroneLegend focus={focus} />
               <LineLegend lines={model.data.lines} />
             </div>
           </aside>
@@ -153,7 +151,7 @@ export default function App() {
               resolved={resolved}
               solution={plan.solution}
               grid={plan.grid}
-              maxMinutes={bounds.max}
+              focus={focus}
               contours={plan.contours}
               stopsFC={plan.stopsFC}
               route={route}

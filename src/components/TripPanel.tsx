@@ -1,12 +1,11 @@
-/** 출발/도착 검색, 등시선 토글, 요약 배지, 경로 카드 — 사이드바의 내용물 (레이아웃은 App이 담당). */
+/** 출발/도착 검색, 등시선 밴드 강조, 요약 배지, 경로 카드 — 사이드바의 내용물 (레이아웃은 App이 담당). */
 import { ArrowDownUp, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { StationSearch } from "./StationSearch.tsx";
 import { fmtTime } from "@/lib/format.ts";
+import { BANDS } from "@/lib/constants.ts";
 import type { GraphModel, Place, Route } from "@/lib/types.ts";
-
-const ISO_OPTIONS = [15, 30, 45, 60];
 
 interface Props {
   model: GraphModel;
@@ -16,8 +15,8 @@ interface Props {
   onDest: (p: Place) => void;
   swap: () => void;
   reset: () => void;
-  isos: number[];
-  onIsos: (next: number[]) => void;
+  focus: number;
+  onFocus: (t: number) => void;
   summary: {
     withinReach: number;
     totalStations: number;
@@ -28,10 +27,6 @@ interface Props {
 }
 
 export function TripPanel(p: Props) {
-  const toggleIso = (t: number) => {
-    p.onIsos(p.isos.includes(t) ? p.isos.filter((x) => x !== t) : [...p.isos, t].sort((a, b) => a - b));
-  };
-
   return (
     <div className="flex flex-col gap-3">
       <Card>
@@ -72,12 +67,15 @@ export function TripPanel(p: Props) {
           <CardTitle className="text-sm">등시선 (소요 시간 등고선)</CardTitle>
         </CardHeader>
         <CardContent className="flex flex-wrap gap-1.5">
-          {ISO_OPTIONS.map((t) => (
+          <p className="w-full pb-0.5 text-[11px] text-muted-foreground">
+            5개 밴드를 항상 그립니다 — 고른 밴드만 윤곽·라벨로 강조합니다.
+          </p>
+          {BANDS.map((t) => (
             <button
               key={t}
-              onClick={() => toggleIso(t)}
+              onClick={() => p.onFocus(t)}
               className={`rounded-md border px-2 py-1 font-mono text-[11px] transition-colors ${
-                p.isos.includes(t)
+                p.focus === t
                   ? "border-foreground bg-foreground text-background"
                   : "border-border text-muted-foreground hover:bg-secondary"
               }`}
