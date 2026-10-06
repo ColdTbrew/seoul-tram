@@ -20,6 +20,9 @@ export interface RawStop {
 /** [정류장 a, 정류장 b, 소요 분, 노선 인덱스(-1 = 도보 연결)] — 양방향. */
 export type RawEdge = [a: number, b: number, minutes: number, lineIdx: number];
 
+/** 인접 리스트 항목 [다음 정류장, 분, 노선 인덱스|-1] */
+export type AdjEdge = [to: number, minutes: number, lineIdx: number];
+
 export interface RawLine {
   id: string;
   name: string;
@@ -54,7 +57,7 @@ export interface GraphModel {
   /** 상태 스트라이드 = lines.length + 1 (0 = 도보 상태, k+1 = 노선 k 승차 상태) */
   stride: number;
   /** adj[i] = [다음 정류장, 분, 노선 인덱스|-1] 나열. 양방향 간선은 양쪽 모두에 등록. */
-  adj: number[][];
+  adj: AdjEdge[][];
   /** 정류장 평면 좌표 (m). toWorld/toLL로 왕복. */
   x: Float64Array;
   y: Float64Array;

@@ -3,8 +3,7 @@
  * v0-static의 js/graph.js를 순수 함수로 포팅 (전역 상태 금지 — 인자로만 주고받는다). */
 import { ACCESS_RADIUS, BUCKET_M, WALK_SPEED } from "./constants.ts";
 import { dist2 } from "./format.ts";
-import type { GraphModel, LngLat, NetworkData, Route, RouteStep, Solution } from "./types.ts";
-
+import type { AdjEdge, GraphModel, LngLat, NetworkData, Route, RouteStep, Solution } from "./types.ts";
 /* ---------- 좌표/인덱스 ---------- */
 
 /** 짧은 거리용 평면 근사 (m). 지도 중심을 원점으로. */
@@ -27,7 +26,7 @@ export function prepareNetwork(data: NetworkData): GraphModel {
     y[i] = (data.stops[i]!.lat - lat0) * proj.mLat;
   }
 
-  const adj: number[][] = Array.from({ length: data.stops.length }, () => []);
+  const adj: AdjEdge[][] = Array.from({ length: data.stops.length }, () => [] as AdjEdge[]);
   for (const [a, b, minutes, lineIdx] of data.edges) {
     adj[a]!.push([b, minutes, lineIdx]);
     adj[b]!.push([a, minutes, lineIdx]); // 모든 간선은 양방향
