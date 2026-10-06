@@ -65,7 +65,8 @@ export default function App() {
         ? { left: 0, bottom: 0 }
         : isDesktop
           ? { left: 344, bottom: 0 }
-          : { left: 0, bottom: Math.round((typeof window !== "undefined" ? window.innerHeight : 800) * 0.5) },
+          // 하단 시트가 max-h-[55dvh]라서 여백도 55%로 맞춘다 (50%로 두면 시트가 아래 여백까지 덮는다)
+          : { left: 0, bottom: Math.round((typeof window !== "undefined" ? window.innerHeight : 800) * 0.55) },
     [panelOpen, isDesktop],
   );
 

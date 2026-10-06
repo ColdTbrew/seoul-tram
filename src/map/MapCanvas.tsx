@@ -131,6 +131,10 @@ export function MapCanvas(props: Props) {
         const freeH = Math.max(1, c.clientHeight - pp.bottom);
         const padX = Math.max(32, Math.round(freeW * 0.18));
         const padY = Math.max(32, Math.round(freeH * 0.18));
+        // fitBounds 는 현재 transform padding 에 옵션 padding 을 더해서 계산하므로, 패널 몫을 먼저 확정해 둔다.
+        const cur = map.getPadding();
+        if (cur.left !== pp.left || cur.bottom !== pp.bottom || cur.top !== 0 || cur.right !== 0)
+          map.setPadding({ top: 0, right: 0, left: pp.left, bottom: pp.bottom });
         map.fitBounds(bounds, {
           padding: { top: padY, bottom: padY, left: padX, right: padX },
           maxZoom: 14,
@@ -296,6 +300,11 @@ export function MapCanvas(props: Props) {
     const g = p.grid;
     const sw = toLL(p.model, [g.x0, g.y0]);
     const ne = toLL(p.model, [g.x0 + g.cols * g.cell, g.y0 + g.rows * g.cell]);
+    // 맞춤 전에 패널 padding 을 먼저 확정 (fitBounds 는 현재 transform padding 에 옵션 padding 을 더해서 계산한다).
+    const pp = p.padding ?? { left: 0, bottom: 0 };
+    const cur = map.getPadding();
+    if (cur.left !== pp.left || cur.bottom !== pp.bottom || cur.top !== 0 || cur.right !== 0)
+      map.setPadding({ top: 0, right: 0, left: pp.left, bottom: pp.bottom });
     map.fitBounds([sw, ne], { padding: 24, duration: 350 });
   }, [props.resetSignal]);
 
@@ -306,7 +315,9 @@ export function MapCanvas(props: Props) {
     const map = mapRef.current;
     const p = propsRef.current.padding;
     if (!map || !p) return;
-    map.easeTo({ padding: { top: 0, right: 0, left: p.left, bottom: p.bottom }, duration: 300 });
+    const pad = { top: 0, right: 0, left: p.left, bottom: p.bottom };
+    if (map.loaded() && styleReadyRef.current) map.easeTo({ padding: pad, duration: 300 });
+    else map.setPadding(pad); // 로드 전엔 즉시 적용 (끊길 애니메이션이 없음)
   }, [paddingKey]);
 
   return (
