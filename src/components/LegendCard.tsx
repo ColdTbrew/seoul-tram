@@ -2,13 +2,15 @@
  * 밴드 색은 지도(fill/점)와 같은 상수(BAND_COLORS_*)를 쓰므로 범례와 지도가 항상 같은 색을 가리킨다. */
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { BANDS, BAND_COLORS_DARK, BAND_COLORS_LIGHT, FAR_HEX } from "@/lib/constants.ts";
+import { BANDS, BAND_COLORS_DARK, BAND_COLORS_LIGHT, FAR_HEX_DARK, FAR_HEX_LIGHT } from "@/lib/constants.ts";
 import { useTheme } from "@/hooks/useTheme.tsx";
 
 /** 등시선 5밴드 + 도달 불가. 지금 강조(focus) 중인 밴드는 테두리로 표시한다. */
 export function IsochroneLegend({ focus }: { focus: number }) {
   const { resolved } = useTheme();
-  const C = resolved === "dark" ? BAND_COLORS_DARK : BAND_COLORS_LIGHT;
+  const dark = resolved === "dark";
+  const C = dark ? BAND_COLORS_DARK : BAND_COLORS_LIGHT;
+  const FAR = dark ? FAR_HEX_DARK : FAR_HEX_LIGHT;
 
   return (
     <Card>
@@ -30,7 +32,7 @@ export function IsochroneLegend({ focus }: { focus: number }) {
           ))}
         </div>
         <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-          <span className="size-2.5 shrink-0 rounded-sm" style={{ background: FAR_HEX, opacity: 0.45 }} />
+          <span className="size-2.5 shrink-0 rounded-sm" style={{ background: FAR, opacity: 0.45 }} />
           회색: 90분 넘게 걸리거나 못 가는 곳
         </div>
         <p className="text-[11px] text-muted-foreground">

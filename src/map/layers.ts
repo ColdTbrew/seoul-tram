@@ -2,7 +2,7 @@
  * 이 파일과 MapCanvas.tsx 안에 봉인한다. 좌표는 LngLat=[경도,위도] = GeoJSON 순서와 동일해 변환 불필요.
  * 레이어 추가 순서(아래→위): iso-fill → iso-line → iso-focus → iso-label → lines → stations → route-casing → route. */
 import type { ExpressionSpecification, Map as MLMap } from "maplibre-gl";
-import { BANDS, BAND_COLORS_DARK, BAND_COLORS_LIGHT, FAR_HEX } from "@/lib/constants.ts";
+import { BANDS, BAND_COLORS_DARK, BAND_COLORS_LIGHT, FAR_HEX_DARK, FAR_HEX_LIGHT } from "@/lib/constants.ts";
 import type { GeoFC, GeoLine, GeoMultiPolygon, GeoPoint, GraphModel, Route } from "@/lib/types.ts";
 
 export const LAYER_IDS = ["iso-fill", "iso-line", "iso-focus", "iso-label", "lines", "stations", "route-casing", "route"] as const;
@@ -14,9 +14,10 @@ export function resetCustomLayers(map: MLMap) {
   for (const sid of SOURCE_IDS) if (map.getSource(sid)) map.removeSource(sid);
 }
 
-/** 밴드별 투명도 (band 0 = 15분이 가장 진함, 4 = 90분이 가장 옅음). 드래그 중(dim)에는 절반으로 옅게. */
-const ALPHA_LIGHT = [0.18, 0.15, 0.12, 0.09, 0.05];
-const ALPHA_DARK = [0.2, 0.17, 0.14, 0.11, 0.07];
+/** 밴드별 투명도 (band 0 = 15분이 가장 진함, 4 = 90분이 가장 옅음). 드래그 중(dim)에는 절반으로 옅게.
+ * YlOrRd/Viridis 는 연한 색이 투명하면 안 보이므로 Vercel 램프 때보다 올렸다. */
+const ALPHA_LIGHT = [0.5, 0.45, 0.4, 0.35, 0.28];
+const ALPHA_DARK = [0.45, 0.42, 0.4, 0.38, 0.35];
 const half = (v: number) => Number((v / 2).toFixed(3));
 
 export function isoFillOpacity(dark: boolean, dim = false): ExpressionSpecification {
@@ -25,7 +26,7 @@ export function isoFillOpacity(dark: boolean, dim = false): ExpressionSpecificat
 }
 
 export function isoLineOpacity(dark: boolean, dim = false): number {
-  const base = dark ? 0.55 : 0.95;
+  const base = dark ? 0.85 : 0.9;
   return dim ? half(base) : base;
 }
 
@@ -40,6 +41,8 @@ export function paintIso(
 ) {
   if (!fc.features.length) return;
   const C = dark ? BAND_COLORS_DARK : BAND_COLORS_LIGHT;
+  const focusBand = BANDS.indexOf(focus);
+  const focusColor = C[focusBand >= 0 ? focusBand : 0];
   const bandColor = ["match", ["get", "band"], 0, C[0], 1, C[1], 2, C[2], 3, C[3], C[4]];
   const join = { "line-join": "round", "line-cap": "round" };
 
@@ -59,8 +62,8 @@ export function paintIso(
     type: "line" as const,
     source: "iso",
     paint: {
-      "line-color": dark ? bandColor : "#ffffff",
-      "line-width": dark ? 1 : 1.25,
+      "line-color": bandColor,
+      "line-width": 1.25,
       "line-opacity": isoLineOpacity(dark),
     },
     layout: join,
@@ -70,7 +73,7 @@ export function paintIso(
     type: "line" as const,
     source: "iso",
     filter: ["==", ["get", "t"], focus],
-    paint: { "line-color": C[0], "line-width": 2, "line-opacity": 0.9 },
+    paint: { "line-color": focusColor, "line-width": 2.5, "line-opacity": 1 },
     layout: join,
   } as never);
   // 밴드 경계를 따라 "15분" … — 폰트 스택은 CARTO 스타일이 실제로 쓰는 것 (다른 이름은 글리프 404).
@@ -91,7 +94,7 @@ export function paintIso(
       "text-max-angle": 30,
     },
     paint: {
-      "text-color": dark ? "#c8fff3" : "#0b3d91",
+      "text-color": dark ? (focus === 15 ? "#fde725" : "#e5e7eb") : "#7a0177",
       "text-halo-color": dark ? "#000000" : "#ffffff",
       "text-halo-width": 1.5,
     },
@@ -136,9 +139,10 @@ export function paintLines(map: MLMap, model: GraphModel, dark: boolean) {
 export function paintStops(map: MLMap, fc: GeoFC<GeoPoint, { t: number; name: string }>, dark: boolean) {
   if (!fc.features.length) return;
   const C = dark ? BAND_COLORS_DARK : BAND_COLORS_LIGHT;
-  const steps: unknown[] = ["case", ["<", ["get", "t"], 0], FAR_HEX];
+  const FAR = dark ? FAR_HEX_DARK : FAR_HEX_LIGHT;
+  const steps: unknown[] = ["case", ["<", ["get", "t"], 0], FAR];
   for (let i = 0; i < BANDS.length; i += 1) steps.push(["<=", ["get", "t"], BANDS[i]], C[i]);
-  steps.push(FAR_HEX);
+  steps.push(FAR);
   map.addSource("stations", { type: "geojson", data: fc as never } as never);
   map.addLayer({
     id: "stations",

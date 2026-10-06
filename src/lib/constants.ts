@@ -29,9 +29,12 @@ export const PALETTE: Array<[number, [number, number, number]]> = [
 ];
 export const FAR_COLOR: [number, number, number] = [154, 160, 166];
 
-/** 밴드 색 (가까움 → 멂). 라이트 = Vercel 블루 계열, 다크 = Vercel 시안/틸 계열.
+/** 밴드 색 (가까움 → 멂). 라이트 = ColorBrewer YlOrRd 5-class, 다크 = Viridis.
  * 등시선 fill/line·역 점·범례가 모두 이 다섯 값을 쓴다 (테마별로 분리). */
-export const BAND_COLORS_LIGHT = ["#0047d6", "#1f6fff", "#4f8dff", "#86b0ff", "#bdd3ff"];
-export const BAND_COLORS_DARK = ["#5ff5d9", "#3ddbc4", "#2bb5a8", "#21898a", "#1b6470"];
-/** 도달 불가 색 (범례·역 점 공통) */
-export const FAR_HEX = "#9aa0a6";
+/** 라이트: ColorBrewer YlOrRd 5-class. 15분=연한 노랑 → 90분=진한 빨강 (멀수록 hotter) */
+export const BAND_COLORS_LIGHT = ["#ffffb2", "#fecc5c", "#fd8d3c", "#f03b20", "#bd0026"];
+/** 다크: Viridis. 15분=밝은 노랑 → 90분=보라 (가까울수록 pop) */
+export const BAND_COLORS_DARK = ["#fde725", "#5ec962", "#21918c", "#3b528b", "#440154"];
+/** 도달 불가 색 (범례·역 점 공통, 테마별 분리) */
+export const FAR_HEX_LIGHT = "#9aa0a6";
+export const FAR_HEX_DARK = "#6b7280";
