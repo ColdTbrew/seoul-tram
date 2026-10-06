@@ -6,7 +6,7 @@ import { PALETTE, FAR_COLOR } from "@/lib/constants.ts";
 import { rgb } from "@/lib/format.ts";
 import type { GeoFC, GeoLine, GeoMultiPolygon, GeoPoint, GraphModel, Route } from "@/lib/types.ts";
 
-export const LAYER_IDS = ["iso-fill", "iso-line", "lines", "stations", "route"] as const;
+export const LAYER_IDS = ["iso-fill", "iso-line", "lines", "stations", "route-casing", "route"] as const;
 const SOURCE_IDS = ["iso", "lines", "stations", "route"] as const;
 
 /** 테마 전환(setStyle)·재페인트 전 커스텀 레이어 제거 — 재로딩된 스타일엔 커스텀 레이어가 사라진 뒤다. */
@@ -102,7 +102,8 @@ export function paintStops(map: MLMap, fc: GeoFC<GeoPoint, { t: number; name: st
   } as never);
 }
 
-/** 경로 하이라이트: 도보 = 얇은 흑(다크=백)색, 승차 = 공식 노선색 굵은 선. */
+/** 경로 하이라이트 (가장 마지막에 추가 = 최상단, minzoom 없음):
+ * 두께 6px 본선 + 그 아래 8px 케asing(라이트=흰색/다크=검정). 케싱 덕에 다크 매터 위에서도 대비가 산다. */
 export function paintRoute(map: MLMap, model: GraphModel, route: Route, dark: boolean) {
   const features = route.steps
     .filter((s) => s.points.length >= 2)
@@ -121,14 +122,23 @@ export function paintRoute(map: MLMap, model: GraphModel, route: Route, dark: bo
   if (!features.length) return;
   map.addSource("route", { type: "geojson", data: { type: "FeatureCollection", features } as never });
   map.addLayer({
+    id: "route-casing",
+    type: "line" as const,
+    source: "route",
+    paint: {
+      "line-color": (dark ? "#000000" : "#ffffff") as never,
+      "line-width": 8,
+      "line-opacity": 1,
+    },
+  } as never);
+  map.addLayer({
     id: "route",
     type: "line" as const,
     source: "route",
-    minzoom: 10,
     paint: {
       "line-color": ["get", "color"] as never,
-      "line-width": 3.5,
-      "line-opacity": 0.9,
+      "line-width": 6,
+      "line-opacity": 0.95,
     },
   } as never);
 }

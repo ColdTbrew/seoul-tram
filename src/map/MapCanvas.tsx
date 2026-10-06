@@ -36,14 +36,16 @@ function hitRadius(zoom: number, lat: number): number {
 // MapLibre v6는 워커 URL을 명시해야 한다 — 지정 없으면 번들된 워커가 404(지도가 텅 빔). 파일 상단 = 생성 전 보장.
 setWorkerUrl(workerUrl);
 
-function makeMarker(ll: LngLat, color: string, draggable: boolean): MLMarker {
+/** 감독 지정 마커 스타일: 16px 원형 — 배경 #000(다크 #fff) + 테두리 3px #fff(다크 #000) + 그림자 1px.
+ * 테마 전환 시에도 이 함수로 재생성/갱신되므로 다크 매터 위에서 흰 점이 사라지는 법이 없다. */
+function markerCss(dark: boolean): string {
+  return `width:16px;height:16px;border-radius:50%;background:${dark ? "#ffffff" : "#000000"};border:3px solid ${dark ? "#000000" : "#ffffff"};box-shadow:0 0 0 1px rgba(0,0,0,.3);`;
+}
+
+function makeMarker(ll: LngLat, dark: boolean, draggable: boolean): MLMarker {
   const el = document.createElement("div");
   el.dataset.pt = "dot"; // 검증 스크립트용 셀렉터: [data-pt="dot"]
-  // Tailwind 클래스 문자열은 프러지 위험 — 마커 스타일은 인라인으로만 (18px 흰 테두리 포함)
-  el.style.cssText =
-    "width:18px;height:18px;border-radius:9999px;border:2px solid #ffffff;box-shadow:0 1px 4px rgba(0,0,0,.45);background:" +
-    color +
-    ";";
+  el.style.cssText = markerCss(dark);
   return new MLMarker({ element: el, anchor: "center", draggable: draggable }).setLngLat(ll);
 }
 
@@ -72,12 +74,12 @@ export function MapCanvas(props: Props) {
     const syncMarker = (
       ref: React.MutableRefObject<MLMarker | null>,
       ll: LngLat | null,
-      color: string,
+      dark: boolean,
       draggable: boolean,
     ) => {
       if (ll) {
         if (!ref.current) {
-          ref.current = makeMarker(ll, color, draggable);
+          ref.current = makeMarker(ll, dark, draggable);
           if (draggable) {
             ref.current.on("dragend", () => {
               const m = ref.current;
@@ -87,14 +89,18 @@ export function MapCanvas(props: Props) {
             });
           }
           ref.current.addTo(map);
-        } else ref.current.setLngLat(ll);
+        } else {
+          ref.current.setLngLat(ll);
+          const el = ref.current.getElement();
+          if (el.dataset.pt === "dot") el.style.cssText = markerCss(dark); // 테마 전환 후에도 대비 유지
+        }
       } else if (ref.current) {
         ref.current.remove();
         ref.current = null;
       }
     };
-    syncMarker(markerFromRef, p.origin, "#3aa70b", true);
-    syncMarker(markerToRef, p.dest, "#444444", false);
+    syncMarker(markerFromRef, p.origin, p.resolved === "dark", true);
+    syncMarker(markerToRef, p.dest, p.resolved === "dark", false);
 
     if (p.route) {
       const pts = p.route.steps.flatMap((s) => s.points);
