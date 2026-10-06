@@ -1,7 +1,8 @@
 /** MapLibre 래퍼: React 트리는 이 컴포넌트에게 props만 흘려보내고, MapLibre와의 모든 명령형
  * 상호작용(스타일 재로딩·레이어 페인트·마커·히트테스트)은 이 파일과 layers.ts 안에만 있다. */
 import { useEffect, useRef, useState } from "react";
-import * as maplibregl from "maplibre-gl";
+import { LngLatBounds, Marker as MLMarker, Map as MLMap, setWorkerUrl } from "maplibre-gl";
+import workerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url";
 import { fmtTime } from "@/lib/format.ts";
 import { nearestStops, timeToPoint, toLL } from "@/lib/graph.ts";
 import type { GeoFC, GeoPoint, GeoPolygon, GraphModel, IsoGrid, LngLat, Route, Solution } from "@/lib/types.ts";
@@ -32,18 +33,21 @@ function hitRadius(zoom: number, lat: number): number {
   return Math.max(16 * mPerPx, 120);
 }
 
-function makeMarker(ll: LngLat, color: string, draggable: boolean): maplibregl.Marker {
+// MapLibre v6는 워커 URL을 명시해야 한다 — 지정 없으면 번들된 워커가 404(지도가 텅 빔). 파일 상단 = 생성 전 보장.
+setWorkerUrl(workerUrl);
+
+function makeMarker(ll: LngLat, color: string, draggable: boolean): MLMarker {
   const el = document.createElement("div");
   el.className = "size-4 shrink-0 rounded-full border-2 border-white shadow-[0_1px_4px_rgba(0,0,0,.45)]";
   el.style.background = color;
-  return new maplibregl.Marker({ element: el, anchor: "center", draggable: draggable }).setLngLat(ll);
+  return new MLMarker({ element: el, anchor: "center", draggable: draggable }).setLngLat(ll);
 }
 
 export function MapCanvas(props: Props) {
   const containerRef = useRef<HTMLDivElement | null>(null);
-  const mapRef = useRef<maplibregl.Map | null>(null);
-  const markerFromRef = useRef<maplibregl.Marker | null>(null);
-  const markerToRef = useRef<maplibregl.Marker | null>(null);
+  const mapRef = useRef<MLMap | null>(null);
+  const markerFromRef = useRef<MLMarker | null>(null);
+  const markerToRef = useRef<MLMarker | null>(null);
   const propsRef = useRef(props);
   propsRef.current = props;
   const repaintRef = useRef<() => void>(() => {});
@@ -61,7 +65,7 @@ export function MapCanvas(props: Props) {
     if (p.route) paintRoute(map, p.model, p.route, p.resolved === "dark");
 
     const syncMarker = (
-      ref: React.MutableRefObject<maplibregl.Marker | null>,
+      ref: React.MutableRefObject<MLMarker | null>,
       ll: LngLat | null,
       color: string,
       draggable: boolean,
@@ -90,7 +94,7 @@ export function MapCanvas(props: Props) {
     if (p.route) {
       const pts = p.route.steps.flatMap((s) => s.points);
       if (pts.length >= 2) {
-        const bounds = new maplibregl.LngLatBounds(pts[0]!, pts[0]!);
+        const bounds = new LngLatBounds(pts[0]!, pts[0]!);
         for (const pt of pts) bounds.extend(pt);
         map.fitBounds(bounds, { padding: 40, maxZoom: 15, duration: 350 });
       }
@@ -102,7 +106,7 @@ export function MapCanvas(props: Props) {
     if (!containerRef.current || mapRef.current) return;
     const p = propsRef.current;
     const start = p.origin ?? [p.model.data.meta.defaultFrom.lon, p.model.data.meta.defaultFrom.lat];
-    const map = new maplibregl.Map({
+    const map = new MLMap({
       container: containerRef.current,
       style: basemapUrl(p.resolved, false),
       center: start,

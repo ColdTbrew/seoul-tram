@@ -91,8 +91,6 @@ export function paintRoute(map: MLMap, model: GraphModel, route: Route, dark: bo
       "line-color": ["get", "color"] as never,
       "line-width": 3.5,
       "line-opacity": 0.9,
-      "line-join": "round",
-      "line-cap": "round",
     } as never,
   } as never);
 }
