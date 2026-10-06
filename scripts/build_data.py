@@ -4,8 +4,8 @@
 `data/raw/GTFS_Korea.zip`(KTDB 국가교통DB 전국 GTFS, Hugging Face
 `Digital-Twin-Urban-Mobility/GTFS-Korea` 미러)을 스트리밍으로 읽어 사이트가 쓸 JSON을 만든다:
 
-    data/network.json  — 지도/그래프: 승강장(stop) 노드, 승차·도보 간선, 노선색과 선형
-    data/rankings.json — 순위 페이지용 통계(배차 추정, 역별 정차 횟수, 최장 소요 노선, 시청 기준 등)
+    public/data/network.json  — 지도/그래프: 승강장(stop) 노드, 승차·도보 간선, 노선색과 선형
+    public/data/rankings.json — 순위 페이지용 통계(배차 추정, 역별 정차 횟수, 최장 소요 노선, 시청 기준 등)
 
 원본 3 GB를 전부 풀지 않고 member별로 필요 행만 스트리밍 필터링한다(shapes.txt 1.58 GB,
 stop_times.txt 1.52 GB 포함 — 줄 단위 스트리밍이라 파일 전체를 메모리에 올리지 않는다).
@@ -21,7 +21,7 @@ stop_times.txt 1.52 GB 포함 — 줄 단위 스트리밍이라 파일 전체를
   * 승차 간선으로 직접 이어지지 않은 450 m 미만 승강장쌍은 도보로 연결(환승·단거리 도보)
 
 Usage:
-    python3 scripts/build_data.py            # data/network.json + data/rankings.json 생성 + 검증 출력
+    python3 scripts/build_data.py            # public/data/*.json 생성 + 검증 출력
 """
 from __future__ import annotations
 
@@ -37,7 +37,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 ZIP = ROOT / "data/raw/GTFS_Korea.zip"
-OUT = ROOT / "data"
+OUT = ROOT / "public" / "data"   # Vite 가 public/ 을 dist/ 루트로 복사 — 앱은 /data/… 가 아닌 BASE_URL 상대경로로 fetch
 
 WALK_SPEED = 75.0             # m/분, 직선거리 (원본 모델과 동일)
 ACCESS_RADIUS = 1200.0        # 출발지가 임의 지점일 때 도보로 잡는 승강장 반경 (m)

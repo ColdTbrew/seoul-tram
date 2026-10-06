@@ -1,4 +1,7 @@
 data/raw/
 data/explore/
 node_modules/
+dist/
+*.local
+.DS_Store
 __pycache__/
