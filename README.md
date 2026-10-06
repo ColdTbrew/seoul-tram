@@ -1,7 +1,7 @@
-# 서울 지하철로 몇 분? · Seoul by Subway
+# 서울 지하철 시간 지도 · Seoul by Subway
 
 서울 지하철 22개 노선으로 **몇 분 만에 어디까지 갈 수 있는지** 보여주는 등시선(isochrone) 지도.
-출발지를 고르면 15/30/45/60/90분 안에 갈 수 있는 범위가 링으로, 역은 걸리는 시간 색으로, 이동 경로는 카드로 뜬다.
+출발지를 고르면 다섯 시간 범위(15/30/45/60/90분)가 링으로 모두 뜨고, 칩과 슬라이더로 이 중 하나를 강조한다. 역은 걸리는 시간 색으로, 이동 경로는 카드로 뜬다.
 서버도 API 키도 없이, 정적 JSON 두 개와 브라우저 안의 다이익스트라로만 굴러간다.
 A static isochrone map of the Seoul metro — pick an origin and see how far (and how fast) you can go.
 
@@ -14,7 +14,7 @@ A static isochrone map of the Seoul metro — pick an origin and see how far (an
 
 ![라이트 모드 등시선 화면](docs/screenshots/hero-light.png)
 
-*라이트 모드 · 시청 출발 30분 등시선, 노선 공식색, 역은 걸리는 시간 색*
+*라이트 모드 · 다섯 시간 범위를 모두 켠 화면 (ColorBrewer YlOrRd — 옅은 노랑이 가깝고 진한 빨강이 먼 곳), 노선 공식색, 역도 같은 램프*
 
 ## 이 사이트는 뭘 보여주나
 
@@ -26,34 +26,34 @@ A static isochrone map of the Seoul metro — pick an origin and see how far (an
 
 ## 기능
 
-- 시간 등시선 링 **15 / 30 / 45 / 60 / 90분** — 다섯 개를 항상 함께 켭니다 (강조는 이 중 하나). 150 m 격자에서 계산한 **닫힌 링**이라, 못 가는 곳은 어떤 링에도 채워지지 않는다
-- **걸리는 시간으로 역 색칠** — 0분에 가까울수록 진한 색(90분 상한), 범례 카드는 등시선 색과 노선색 두 개
+- 시간 등시선 링 **15 / 30 / 45 / 60 / 90분** — 다섯 개를 항상 함께 켭니다 (칩과 슬라이더로 이 중 하나만 강조 가능). 150 m 격자에서 계산한 **닫힌 링**이라, 못 가는 곳은 어떤 링에도 채워지지 않는다
+- **걸리는 시간으로 역 색칠** — 0분에 가까울수록 진한 색(90분 초과는 회색), 범례 카드는 등시선 색과 노선색 두 개
 - **이동 계획 카드** — 도보 → 승차 → 환승 순서대로 각각의 시간과 노선색 점, 마지막에 총 걸리는 시간 (시청 → 강남은 지금 데이터에서 약 40분, 2호선·3호선을 타고 도보 구간 두 개를 지난다)
 - **역 검색** — 한글 부분 일치(`을지로` → 을지로입구 · 을지로3가 · 을지로4가), 승강장 표기를 그대로 쳐도 매칭(`왕십리(성동구청)` → `왕십리`), `경도, 위도` 좌표 직접 입력
 - **지도 클릭으로 도착 지정**(가까운 역이든 임의 지점이든), **출발 마커 드래그로 출발지 이동**, 출발/도착 교환 버튼, 지도를 드래그하면 등시선이 옅어진다
 - **커서 위치의 걸리는 시간 표시** — 가까운 승강장 위에 마우스를 올리면 커서가 손가락으로 바뀌며 `역 이름 · 시간 (도보 포함)` 툴팁이 뜬다 (판정 반경은 지도를 축소하면 넓어지고 확대하면 좁아진다 — 최소 120 m)
 - **URL 공유** — `?from=시청&to=강남`처럼 주소줄을 복사하면 열자마자 같은 뷰가 보이고, 앱 안에서 출발/도착을 바꾸면 주소줄이 따라 바뀐다
 - **역 순위 탭** — 상단의 "N분 안에 갈 수 있는 역 N곳"은 지도와 같은 실시간 계산(출발지를 바꾸면 함께 바뀐다), 그 아래 배차간격·정차 횟수·가장 긴 완주·가장 먼 역 표는 Python에서 미리 계산 — 승강장 사이만 세는 별개의 계산이라 문 앞까지 도보를 포함하지 않는다
-- **라이트 / 다크 / 시스템** 테마 — 시스템 설정을 따라가고 선택을 localStorage에 저장, 두 테마에서 등시선 색과 노선색을 따로 재조정
-- **모바일 레이아웃** — 지도를 풀블리드로 깔고 검색 카드를 위에 띄운다(데스크톱은 왼쪽 사이드바 + 지도 분할)
+- **라이트 / 다크 / 시스템** 테마 — 시스템 설정을 따라가고 선택을 localStorage에 저장, 두 테마에서 등시선 램프를 따로 맞췄다 (라이트 ColorBrewer YlOrRd · 다크 Viridis)
+- **접이식 패널** — 지도는 항상 전체 폭이고 패널은 위에 뜬다 (데스크톱 왼쪽 · 모바일 아래). 지도를 움직이면 패널이 자동으로 접혀 지도가 전체를 차지하고, 열기 버튼으로 다시 편다
 - 서버·데이터베이스·API 키 없음 — 정적 파일과 JSON 두 개만 서빙한다
 
 ## 화면
 
 <table>
   <tr>
-    <td width="50%"><img src="docs/screenshots/isochrone-dark.png" alt="다크 모드의 같은 화면"><br><sub>다크 모드 (CARTO Dark Matter) · 같은 화면</sub></td>
+    <td width="50%"><img src="docs/screenshots/isochrone-dark.png" alt="다크 모드의 같은 화면"><br><sub>다크 모드 (CARTO Dark Matter) · 같은 화면 — 역과 링은 Viridis 램프</sub></td>
     <td><img src="docs/screenshots/route.png" alt="시청에서 강남으로 가는 경로"><br><sub>시청 → 강남 경로 카드 (2호선→3호선→2호선, 총 40분) + 지도 경로 하이라이트</sub></td>
   </tr>
   <tr>
     <td><img src="docs/screenshots/route-dark.png" alt="다크 모드의 같은 경로"><br><sub>같은 경로, 다크 모드</sub></td>
-    <td><img src="docs/screenshots/rankings.png" alt="역 순위 탭"><br><sub>역 순위 탭 (주파수 상·하위, 정차 횟수, 가장 긴 완주, 시청에서 가장 먼 역)</sub></td>
+    <td><img src="docs/screenshots/rankings.png" alt="역 순위 탭"><br><sub>역 순위 탭 (배차가 잦은/뜸한 노선, 정차가 가장 많은 역, 종점까지 가장 긴 노선, 시청에서 가장 먼 역)</sub></td>
   </tr>
 </table>
 
 <p align="center">
-  <img src="docs/screenshots/mobile.png" width="280" alt="모바일 390px · 상단 패널 + 풀블리드 지도"><br>
-  <sub>모바일 390px · 상단 패널 + 풀블리드 지도</sub>
+  <img src="docs/screenshots/mobile.png" width="280" alt="모바일 · 패널을 접은 상태 (등시선이 지도 전체)"><br>
+  <sub>모바일 · 패널을 접은 상태 (등시선이 지도 전체)</sub>
 </p>
 
 ## 시간을 계산하는 방법
@@ -142,6 +142,41 @@ unzip -p GTFS_Korea.zip GTFS_Korea/stop_times.txt | grep -F -f /tmp/gtfs/keep_st
 - **KTDB 국가교통DB** 전국 GTFS — [Hugging Face GTFS-Korea 미러](https://huggingface.co/datasets/Digital-Twin-Urban-Mobility/GTFS-Korea)에서 받았다.
 - **지도 타일** © OpenStreetMap contributors (ODbL) · **베이스맵 스타일** © CARTO (Positron · Dark Matter).
 - **Geist Variable** 서체 (Vercel).
+
+## 개발 비용 / 토큰 통계 · Development cost
+
+**Grok Bot(스파키)는 조언·검증·배포를 맡았고, 코드 작성은 로컬 모델이 담당했습니다.**
+Grok Bot (Sparky) advised pi, verified the UI with Playwright screenshots, and handled the GitHub Pages deploy — it did not write the application code. Coding tokens are only the local-model numbers below.
+
+### 로컬 코딩 모델 · Local coding model
+| 항목 | 값 |
+| --- | --- |
+| 모델 | Qwen3.8-Flash-Next (TensorFold on DGX Spark), thinking = medium |
+| 에이전트 | pi coding agent (herdr session `seoul-tram`) |
+| 측정 구간 (KST) | 2026-10-06 20:49 – 2026-10-07 08:17 |
+| 요청 수 | 668 |
+| 생성 토큰 (completion) | 1,119,682 |
+| 프롬프트 토큰 | 80,967,957 (대부분 prefix-cache hit) |
+| decode tok/s (요청당) | median 57.2 / mean 58.8 / p90 72.3 / max 95.6 / min 40.5 |
+| token-weighted decode | 55.0 tok/s |
+| MTP acceptance | 72.8% |
+
+Round 2만 (등시선·패널·문구·슬라이더, 2026-10-07 07:01–08:17): 요청 186, 생성 169,439 토큰, median 59.2 tok/s, MTP 75.2%.
+
+### 감독 · Supervisor (Grok Bot / 스파키)
+Grok Bot 쪽 **정확한 토큰 수는 미수집**입니다. 코딩 토큰은 위 표가 전부입니다.
+| 항목 | 값 |
+| --- | --- |
+| 역할 | 지시 메모 · Playwright 시각 검증 · 스크린샷 · GitHub Pages 배포 |
+| 감독 라운드 | 약 10회 중간/최종 보고 |
+| 프로젝트 wall-clock (KST) | 2026-10-06 저녁 – 2026-10-07 오전 (약 12시간, 중단·재개 포함) |
+
+### 프로젝트 규모 · Project stats
+| 항목 | 값 |
+| --- | --- |
+| 라이브 | https://coldtbrew.github.io/seoul-tram/ |
+| 기본 브랜치 / 커밋 | `main` · 30+ commits (HEAD는 이 커밋) |
+| 영감 | [À portée de tram](https://tram.camilleroux.com/) (Camille Roux, MIT) |
 
 ## 라이선스
 
