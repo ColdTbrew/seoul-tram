@@ -10,7 +10,7 @@ import { ThemeToggle } from "./components/ThemeToggle.tsx";
 import { useNetworkData } from "./hooks/useNetworkData.ts";
 import { useTheme } from "./hooks/useTheme.tsx";
 import { useTripPlan } from "./hooks/useTripPlan.ts";
-import { resolveQuery } from "./lib/search.ts";
+import { defaultOrigin, resolveQuery } from "./lib/search.ts";
 import { routeTo } from "./lib/graph.ts";
 import { DEFAULT_MAX } from "./lib/constants.ts";
 import type { Place } from "./lib/types.ts";
@@ -41,8 +41,8 @@ export default function App() {
     const q = new URLSearchParams(window.location.search);
     const from = resolveQuery(model.data, q.get("from") ?? "");
     const to = resolveQuery(model.data, q.get("to") ?? "");
-    const d = model.data.meta.defaultFrom;
-    setOrigin(from ?? { label: d.name, point: [d.lon, d.lat] });
+    // ?from= 이 없으면 기본 출발지로 되된다 — 둘 다 역 클러스터 좌표를 쓰는 같은 좌표 규칙 (수치 통일)
+    setOrigin(from ?? defaultOrigin(model.data));
     setDest(to);
   }, [model]);
 
@@ -80,8 +80,7 @@ export default function App() {
 
   const reset = useCallback(() => {
     if (!model) return;
-    const d = model.data.meta.defaultFrom;
-    setOrigin({ label: d.name, point: [d.lon, d.lat] });
+    setOrigin(defaultOrigin(model.data));
     setDest(null);
     setIsos(DEFAULT_ISOS);
     setResetSignal((n) => n + 1);
@@ -173,7 +172,7 @@ export default function App() {
 
       {tab === "rank" && (
         <main className="min-h-0 flex-1 overflow-y-auto">
-          <RankingsView />
+          <RankingsView origin={origin?.label ?? null} summary={plan.summary} />
         </main>
       )}
       {tab === "about" && (

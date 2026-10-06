@@ -67,19 +67,45 @@ function listToRows(d: RankingsData): Array<{ title: string; caption: string; ro
   ];
 }
 
-export function RankingsView() {
+interface Props {
+  /** 요약 문장의 주어 (현재 출발지 라벨) */
+  origin: string | null;
+  /** 지도와 같은 계산(useTripPlan)의 결과 — 없으면 rankings.json의 사전 계산값으로 되돈다 */
+  summary: { withinReach: number; totalStations: number; reachMinutes: number } | null;
+}
+
+export function RankingsView({ origin, summary }: Props) {
   const state = useRankings();
   if (state.kind === "loading") return <p className="p-6 text-sm text-muted-foreground">순위 데이터 로딩 중…</p>;
   if (state.kind === "error") return <p className="p-6 text-sm text-muted-foreground">rankings.json 로드 실패: {state.message}</p>;
 
-  const sections = listToRows(state.data);
+  const d = state.data;
+  // 지도 개요와 같은 수치가 보이게 한다 — 순위 탭의 기준값을 사전 계산(승강장·대기 제외)으로 두면
+  // 같은 "시청 30분 이내"가 화면마다 145/138/120으로 갈린다.
+  const head = summary
+    ? {
+        from: origin ?? "출발지",
+        minutes: summary.reachMinutes,
+        count: summary.withinReach,
+        total: summary.totalStations,
+        note: "이동 계획 패널과 같은 실시간 계산",
+      }
+    : {
+        from: "시청",
+        minutes: 30,
+        count: d.reachableFromCityHall.within30,
+        total: d.reachableFromCityHall.totalStations,
+        note: "시간표 기준 사전 계산 · 승차 대기와 도보 접근을 빼서 지도 수치보다 조금 크게 나온다",
+      };
+
+  const sections = listToRows(d);
   return (
     <div className="grid gap-3 p-3 md:grid-cols-2 xl:grid-cols-3">
       <Card className="md:col-span-2 xl:col-span-3">
         <CardContent className="flex flex-wrap gap-x-6 gap-y-1 text-xs">
-          <span className="text-muted-foreground">시청 출발 30분 이내 도달 역 {state.data.reachableFromCityHall.within30}개</span>
-          <span className="text-muted-foreground">전체 {state.data.reachableFromCityHall.totalStations}개 역 기준</span>
-          <span className="text-muted-foreground">생성일 {state.data.generated}</span>
+          <span className="text-muted-foreground">{head.from} 출발 {head.minutes}분 이내 도달 역 {head.count}개</span>
+          <span className="text-muted-foreground">전체 {head.total}개 역 기준</span>
+          <span className="text-muted-foreground">{head.note} · 생성일 {d.generated}</span>
         </CardContent>
       </Card>
       {sections.map((s) => (

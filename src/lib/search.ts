@@ -27,11 +27,22 @@ export function parseCoords(data: NetworkData, text: string): LngLat | null {
   return [lon, lat];
 }
 
-/** 검색어/좌표를 Place로 해석 (URL의 ?from=&to= 역 이름도 여기서 파싱) */
+/** 검색어/좌표를 Place로 해석 (URL의 ?from=&to= 역 이름도 여기서 파싱).
+ * 역 이름은 항상 stations의 클러스터 좌표로 해석한다 — 검색창 입력이든 ?from= 이든 같은 이름을
+ * 같은 지점으로 풀어야 등시선 수치가 같아진다. */
 export function resolveQuery(data: NetworkData, text: string): Place | null {
   const coords = parseCoords(data, text);
   if (coords) return { label: `${coords[0].toFixed(4)}, ${coords[1].toFixed(4)}`, point: coords };
   const hits = searchStations(data.stations, text, 1);
   if (hits.length) return { label: hits[0]!.n, point: [hits[0]!.lon, hits[0]!.lat] };
   return null;
+}
+
+/** 기본 출발지(meta.defaultFrom)도 역 이름과 같은 규칙으로 해석한다.
+ * defaultFrom의 좌표는 그 역의 승강장 하나(2호선 시청)를 가리키므로, ?from=시청 처럼 이름으로
+ * 들어온 경우와 출발지가 어긋난다(= 등시선 범위가 달라진다). 그래서 이름 해석을 먼저 쓰고
+ * 실패할 때만 그 좌표로 되돌린다. */
+export function defaultOrigin(data: NetworkData): Place {
+  const d = data.meta.defaultFrom;
+  return resolveQuery(data, d.name) ?? { label: d.name, point: [d.lon, d.lat] };
 }
