@@ -34,7 +34,7 @@ export function IsochroneLegend({ focus }: { focus: number }) {
           90분 넘음 · 못 감 (회색) — 지도의 역 점도 같은 색입니다
         </div>
         <p className="text-[11px] text-muted-foreground">
-          진할수록 가깝습니다. {focus}분 밴드가 강조 중입니다 — 지도에서 굵은 윤곽과 "15분" 같은 경계 라벨로 표시됩니다.
+          진할수록 가깝습니다. 지금은 {focus}분 밴드가 강조 중입니다 — 그 경계에만 굵은 윤곽과 "분" 라벨이 붙습니다.
         </p>
       </CardContent>
     </Card>

@@ -1,7 +1,7 @@
 /** MapLibre 커스텀 페인트 팩토리. MapLibre API 잔기술(소스/레이어키/expression)은
  * 이 파일과 MapCanvas.tsx 안에 봉인한다. 좌표는 LngLat=[경도,위도] = GeoJSON 순서와 동일해 변환 불필요.
  * 레이어 추가 순서(아래→위): iso-fill → iso-line → iso-focus → iso-label → lines → stations → route-casing → route. */
-import type { Map as MLMap } from "maplibre-gl";
+import type { ExpressionSpecification, Map as MLMap } from "maplibre-gl";
 import { BANDS, BAND_COLORS_DARK, BAND_COLORS_LIGHT, FAR_HEX } from "@/lib/constants.ts";
 import type { GeoFC, GeoLine, GeoMultiPolygon, GeoPoint, GraphModel, Route } from "@/lib/types.ts";
 
@@ -14,8 +14,24 @@ export function resetCustomLayers(map: MLMap) {
   for (const sid of SOURCE_IDS) if (map.getSource(sid)) map.removeSource(sid);
 }
 
+/** 밴드별 투명도 (band 0 = 15분이 가장 진함, 4 = 90분이 가장 옅음). 드래그 중(dim)에는 절반으로 옅게. */
+const ALPHA_LIGHT = [0.18, 0.15, 0.12, 0.09, 0.05];
+const ALPHA_DARK = [0.2, 0.17, 0.14, 0.11, 0.07];
+const half = (v: number) => Number((v / 2).toFixed(3));
+
+export function isoFillOpacity(dark: boolean, dim = false): ExpressionSpecification {
+  const A = (dark ? ALPHA_DARK : ALPHA_LIGHT).map((a) => (dim ? half(a) : a));
+  return ["match", ["get", "band"], ...A] as unknown as ExpressionSpecification;
+}
+
+export function isoLineOpacity(dark: boolean, dim = false): number {
+  const base = dark ? 0.55 : 0.95;
+  return dim ? half(base) : base;
+}
+
 /** 등시선 5밴드(15/30/45/60/90분)를 아래에서 위로 쌓는다: fill(중첩될수록 진함) → 얇은 윤곽 →
- * 강조 밴드 → 경계 라벨. 링은 스무딩된 닫힌 MultiPolygon(구멍 포함 가능)이고 features는 T 큰 순서. */
+ * 강조 밴드 → 경계 라벨. 링은 스무딩된 닫힌 MultiPolygon(구멍 포함 가능)이고 features는 T 큰 순서.
+ * fill은 밴드별로 옅게(바깥이 가장 옅게) 깔리고, 라벨은 강조 중인 밴드 경계에만 붙는다. */
 export function paintIso(
   map: MLMap,
   fc: GeoFC<GeoMultiPolygon, { t: number; band: number }>,
@@ -34,7 +50,7 @@ export function paintIso(
     source: "iso",
     paint: {
       "fill-color": bandColor,
-      "fill-opacity": dark ? 0.16 : 0.14,
+      "fill-opacity": isoFillOpacity(dark),
       "fill-antialias": true,
     },
   } as never);
@@ -45,7 +61,7 @@ export function paintIso(
     paint: {
       "line-color": dark ? bandColor : "#ffffff",
       "line-width": dark ? 1 : 1.25,
-      "line-opacity": dark ? 0.55 : 0.95,
+      "line-opacity": isoLineOpacity(dark),
     },
     layout: join,
   } as never);
@@ -57,15 +73,17 @@ export function paintIso(
     paint: { "line-color": C[0], "line-width": 2, "line-opacity": 0.9 },
     layout: join,
   } as never);
-  // 밴드 경계를 따라 "15분" … — 폰트 스택은 CARTO 스타일이 실제로 쓰는 것 (다른 이름은 글리프 404)
+  // 밴드 경계를 따라 "15분" … — 폰트 스택은 CARTO 스타일이 실제로 쓰는 것 (다른 이름은 글리프 404).
+  // 작은 섬마다 라벨이 붙어 지저분해지므로 강조 중인 밴드(focus)의 경계에만, 600px마다 하나씩 붙인다.
   map.addLayer({
     id: "iso-label",
     type: "symbol" as const,
     source: "iso",
     minzoom: 10,
+    filter: ["==", ["get", "t"], focus],
     layout: {
       "symbol-placement": "line",
-      "symbol-spacing": 420,
+      "symbol-spacing": 600,
       "text-field": ["concat", ["to-string", ["get", "t"]], "분"],
       "text-font": ["Montserrat Medium", "Open Sans Bold", "Noto Sans Regular", "HanWangHeiLight Regular", "NanumBarunGothic Regular"],
       "text-size": 11,

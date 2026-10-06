@@ -15,7 +15,7 @@ import { fmtTime } from "@/lib/format.ts";
 import { nearestStops, timeToPoint, toLL } from "@/lib/graph.ts";
 import type { GeoFC, GeoMultiPolygon, GeoPoint, GraphModel, IsoGrid, LngLat, Route, Solution } from "@/lib/types.ts";
 import { basemapUrl } from "./basemap.ts";
-import { paintIso, paintLines, paintRoute, paintStops, resetCustomLayers } from "./layers.ts";
+import { paintIso, paintLines, paintRoute, paintStops, resetCustomLayers, isoFillOpacity, isoLineOpacity } from "./layers.ts";
 import type { Resolved } from "@/hooks/useTheme.tsx";
 
 export type MapPick = { kind: "stop"; ll: LngLat; name: string } | { kind: "point"; ll: LngLat };
@@ -215,17 +215,15 @@ export function MapCanvas(props: Props) {
     });
     map.on("mouseout", () => setTooltip(null));
 
-    // 드래그 중 등시선 옅게 (v0 동작 유지) — 기준값은 paintIso 의 새 페인트와 맞춘다
-    const setHeatOpacity = (fill: number, line: number) => {
+    // 드래그 중 등시선 옅게 (v0 동작 유지) — 밴드별 match 식을 그대로 절반으로 줄인다 (숫자로 바꾸면 램프가 사라진다)
+    const setIsoOpacity = (dim: boolean) => {
       if (!map.getLayer("iso-fill")) return;
-      map.setPaintProperty("iso-fill", "fill-opacity", fill);
-      map.setPaintProperty("iso-line", "line-opacity", line);
-    };
-    map.on("dragstart", () => setHeatOpacity(0.06, 0.1));
-    map.on("dragend", () => {
       const dark = propsRef.current.resolved === "dark";
-      setHeatOpacity(dark ? 0.16 : 0.14, dark ? 0.55 : 0.95);
-    });
+      map.setPaintProperty("iso-fill", "fill-opacity", isoFillOpacity(dark, dim));
+      map.setPaintProperty("iso-line", "line-opacity", isoLineOpacity(dark, dim));
+    };
+    map.on("dragstart", () => setIsoOpacity(true));
+    map.on("dragend", () => setIsoOpacity(false));
 
     return () => {
       window.clearTimeout(styleTimer);
