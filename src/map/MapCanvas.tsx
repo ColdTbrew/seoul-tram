@@ -139,8 +139,18 @@ export function MapCanvas(props: Props) {
 
     // 스타일 재로딩 중 styledata가 뜨면: 준비 완료 시 즉시, 아직이면 1.5초 뒤 재시도 (테마 전환 타이밍 구멍 차단)
     const onStyle = () => {
-      if (map.isStyleLoaded()) repaintRef.current();
-      else window.setTimeout(() => repaintRef.current(), 1500);
+      if (map.isStyleLoaded()) {
+        repaintRef.current();
+        return;
+      }
+      // 재로딩 미완료(소스 pending) 동안 200ms마다 폴링 → 준비되면 페인트하고 멈춤 (최대 ~8초).
+      // 마지막 styledata가 로딩 완료 '중'에 떠도 레이어가 영구 누락되지 않는다 (간헐적 전체 미렌더 = 레이스 버그).
+      let n = 0;
+      const tick = () => {
+        if (map.isStyleLoaded()) repaintRef.current();
+        else if (++n < 40) window.setTimeout(tick, 200);
+      };
+      window.setTimeout(tick, 200);
     };
     map.on("styledata", onStyle);
 
