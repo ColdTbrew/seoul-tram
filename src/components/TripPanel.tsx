@@ -2,9 +2,11 @@
 import { ArrowDownUp, RotateCcw, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Slider } from "@/components/ui/slider";
 import { StationSearch } from "./StationSearch.tsx";
 import { fmtTime } from "@/lib/format.ts";
-import { BANDS } from "@/lib/constants.ts";
+import { BANDS, BAND_COLORS_DARK, BAND_COLORS_LIGHT } from "@/lib/constants.ts";
+import { useTheme } from "@/hooks/useTheme.tsx";
 import type { GraphModel, Place, Route } from "@/lib/types.ts";
 
 interface Props {
@@ -29,6 +31,13 @@ interface Props {
 }
 
 export function TripPanel(p: Props) {
+  const { resolved } = useTheme();
+  const dark = resolved === "dark";
+  const C = dark ? BAND_COLORS_DARK : BAND_COLORS_LIGHT;
+  // 칩과 슬라이더는 하나의 focus(강조 밴드 = 요약 기준)를 같이 움직인다. 슬라이더 값은 BANDS 인덱스.
+  const grad = `linear-gradient(to right, ${C.join(", ")})`;
+  const idx = BANDS.indexOf(p.focus);
+  const safeIdx = idx >= 0 ? idx : 1;
   return (
     <div className="flex flex-col gap-3">
       <Card>
@@ -97,6 +106,20 @@ export function TripPanel(p: Props) {
               {t}분
             </button>
           ))}
+          <div className="flex w-full items-center gap-3 pt-1">
+            <Slider
+              className="flex-1"
+              aria-label="강조할 시간 범위"
+              min={0}
+              max={BANDS.length - 1}
+              step={1}
+              value={[safeIdx]}
+              onValueChange={(v) => p.onFocus(BANDS[v[0] ?? safeIdx]!)}
+              trackStyle={{ background: grad }}
+              thumbStyle={{ background: C[safeIdx], borderColor: dark ? "#000000" : "#ffffff" }}
+            />
+            <span className="w-12 shrink-0 text-right text-xs font-medium tabular-nums">{p.focus}분</span>
+          </div>
         </CardContent>
       </Card>
 
