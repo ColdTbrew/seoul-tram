@@ -68,12 +68,17 @@ export function MapCanvas(props: Props) {
 
   /** 전체 레이어/마커 재페인트 — MapLibre API 호출의 유일한 진입점.
    * 페인트 체인 하나가 모든 레이어를 통째로 다시 올리므로 마커만 따로 갱신할 필요가 없다. */
+  /** 이번 스타일 페인트 '미완료' 여부 (컴포넌트 최상위 — 테마/데이터 체인과 공유). style.load 때 true.
+   * 페인트가 throw 하면 false로 복원해 idle에서 재시도 (isStyleLoaded는 타일까지 기다려 가드로 쓰면 안 됨). */
+  const styleReadyRef = useRef(false);
+
   repaintRef.current = () => {
     const map = mapRef.current;
     const p = propsRef.current;
-    if (!map) return;
+    if (!map || !styleReadyRef.current) return;
 
-    resetCustomLayers(map);
+    try {
+      resetCustomLayers(map);
     paintIso(map, p.contours, p.maxMinutes, p.resolved === "dark");
     paintLines(map, p.model, p.resolved === "dark");
     paintStops(map, p.stopsFC, p.maxMinutes, p.resolved === "dark");
@@ -117,6 +122,14 @@ export function MapCanvas(props: Props) {
         for (const pt of pts) bounds.extend(pt);
         map.fitBounds(bounds, { padding: 40, maxZoom: 15, duration: 350 });
       }
+      }
+    } catch (e) {
+      console.warn("[repaint] deferred:", e);
+      styleReadyRef.current = false; // 스타일/소스 미준비 — idle 때 한 번 더 시도한다 (크래시 대신 지연)
+      map.once("idle", () => {
+        styleReadyRef.current = true;
+        repaintRef.current();
+      });
     }
   };
 
@@ -126,8 +139,6 @@ export function MapCanvas(props: Props) {
     const p = propsRef.current;
     const start = p.origin ?? [p.model.data.meta.defaultFrom.lon, p.model.data.meta.defaultFrom.lat];
 
-    /** 이번 스타일 로딩에 대한 페인트가 '미완료'인지. true = 아직 안 그렸다(또는 스타일이 새로 고침됐다). */
-    const styleReadyRef = { current: true };
     let styleTimer = 0;
 
     const map = new MLMap({
@@ -143,8 +154,8 @@ export function MapCanvas(props: Props) {
     const win = window as unknown as { __seoulMap?: MLMap };
     win.__seoulMap = map; // E2E 검증 스크립트용 훅 — 언마운트 때 지운다
 
-    /** 스타일 준비 완료 판정 시에만 전체 재페인트. 3초 단독 1회 타이머가 뒤따라, style.load가styledata
-     * 보다 늦게 오는 날에도 페인트가 살아 있다(지체 카운트 재시도는 전부 제거 — 레이스의 원인). */
+    /** 스타일 페인트 진입점(전체 재페인트). 3초 단독 1회 타이머가 뒤따라, style.load가 styledata보다
+     * 늦게 오는 날에도 페인트가 살아 있다(지체 카운트 재시도는 전부 제거 — 레이스의 원인). */
     const paintNow = () => {
       repaintRef.current(); // 체인 최상단 resetCustomLayers가 이전 테마의 잔재를 항상 지운다 (addLayer 충돌 방지)
       window.clearTimeout(styleTimer);
@@ -153,23 +164,12 @@ export function MapCanvas(props: Props) {
       }, 3000);
     };
 
-    const onStyleData = () => {
-      const ready = map.isStyleLoaded();
-      if (ready) {
-        styleReadyRef.current = true;
-        paintNow();
-      } else {
-        // 재로딩 '중' — 이때 페인트하면 미완료 소스에 레이어를 얹어 조용히 버려진다. 반드시 미완료로 되돌린다.
-        styleReadyRef.current = false;
-      }
-    };
+    // 메인 체인: style.load = 스타일 JSON 파싱 완료 직후 — 여기서 addSource/addLayer가 안전하다
+    // (타일까지 기다리는 판정은 가드로 쓰지 않는다. styledata 핸들러는 제거 — style.load가 메인).
 
-    // 메인 체인: 스타일이 실제로 완전히 로드된 시점(정류장 점 + 링 채우기가 이 타이밍을 탄다)
     const onStyleLoaded = () => {
-      if (map.isStyleLoaded()) {
-        styleReadyRef.current = true;
-        paintNow();
-      }
+      styleReadyRef.current = true;
+      paintNow();
     };
 
     // 안전망: 스타일 준비가 됐는데 커스텀 레이어가 하나도 없으면(레이스) idle에서 한 번 더 올린다.
@@ -177,7 +177,6 @@ export function MapCanvas(props: Props) {
       if (styleReadyRef.current && !map.getLayer("stations")) repaintRef.current();
     };
 
-    map.on("styledata", onStyleData);
     map.on("style.load", onStyleLoaded);
     map.on("idle", onIdle);
 
@@ -229,7 +228,6 @@ export function MapCanvas(props: Props) {
 
     return () => {
       window.clearTimeout(styleTimer);
-      map.off("styledata", onStyleData);
       map.off("style.load", onStyleLoaded);
       map.off("idle", onIdle);
       markerFromRef.current?.remove();
@@ -253,6 +251,7 @@ export function MapCanvas(props: Props) {
       firstRender.current = false;
       return; // 최초 생성은 현재 테마로 됐고, styledata/style.load 체인이 그림
     }
+    styleReadyRef.current = false; // 재로딩 '중' 표시 — style.load가 true로 되돌리고 페인트한다
     map.setStyle(basemapUrl(props.resolved, false), { diff: false });
     // 재시도 타이머 없음 — style.load(메인 체인)가 늦게 돌아도 발화하고, 그보다 idle이 먼저 오면
     // 안전망(idle 게이트)이 받는다. setStyle은 반드시 diff:false — diff:true 면 styledata 단독 발화가
@@ -268,7 +267,7 @@ export function MapCanvas(props: Props) {
   useEffect(() => {
     const map = mapRef.current;
     const p = propsRef.current;
-    if (!map || !p.grid) return;
+    if (!map || !p.grid || !styleReadyRef.current) return;
     const g = p.grid;
     const sw = toLL(p.model, [g.x0, g.y0]);
     const ne = toLL(p.model, [g.x0 + g.cols * g.cell, g.y0 + g.rows * g.cell]);
