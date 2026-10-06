@@ -61,7 +61,7 @@ function listToRows(d: RankingsData): Array<{ title: string; caption: string; ro
     },
     {
       title: "시청에서 가장 먼 역",
-      caption: "시청 출발 최적 경로의 문 앞까지 총 시간",
+      caption: "시청 출발 최적 경로의 총 시간 — 승강장 간 사전 계산(도보 접근 제외)",
       rows: d.farthestFromCityHall.map(([n, m]) => [n, fmtTime(m)] as [string, string]),
     },
   ];
@@ -95,7 +95,7 @@ export function RankingsView({ origin, summary }: Props) {
         minutes: 30,
         count: d.reachableFromCityHall.within30,
         total: d.reachableFromCityHall.totalStations,
-        note: "시간표 기준 사전 계산 · 승차 대기와 도보 접근을 빼서 지도 수치보다 조금 크게 나온다",
+        note: "시간표 기준 사전 계산(승강장 간 · 도보 접근 제외) · 그래서 지도의 실시간 계산보다 개수가 조금 더 크게 나온다",
       };
 
   const sections = listToRows(d);
