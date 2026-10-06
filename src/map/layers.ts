@@ -21,7 +21,7 @@ const half = (v: number) => Number((v / 2).toFixed(3));
 
 export function isoFillOpacity(dark: boolean, dim = false): ExpressionSpecification {
   const A = (dark ? ALPHA_DARK : ALPHA_LIGHT).map((a) => (dim ? half(a) : a));
-  return ["match", ["get", "band"], ...A] as unknown as ExpressionSpecification;
+  return ["match", ["get", "band"], 0, A[0], 1, A[1], 2, A[2], 3, A[3], A[4]] as unknown as ExpressionSpecification;
 }
 
 export function isoLineOpacity(dark: boolean, dim = false): number {
