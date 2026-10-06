@@ -134,7 +134,7 @@ export function MapCanvas(props: Props) {
         // fitBounds 는 현재 transform padding 에 옵션 padding 을 더해서 계산하므로, 패널 몫을 먼저 확정해 둔다.
         const cur = map.getPadding();
         if (cur.left !== pp.left || cur.bottom !== pp.bottom || cur.top !== 0 || cur.right !== 0)
-          map.setPadding({ top: 0, right: 0, left: pp.left, bottom: pp.bottom });
+          map.jumpTo({ padding: { top: 0, right: 0, left: pp.left, bottom: pp.bottom } });
         map.fitBounds(bounds, {
           padding: { top: padY, bottom: padY, left: padX, right: padX },
           maxZoom: 14,
@@ -304,7 +304,7 @@ export function MapCanvas(props: Props) {
     const pp = p.padding ?? { left: 0, bottom: 0 };
     const cur = map.getPadding();
     if (cur.left !== pp.left || cur.bottom !== pp.bottom || cur.top !== 0 || cur.right !== 0)
-      map.setPadding({ top: 0, right: 0, left: pp.left, bottom: pp.bottom });
+      map.jumpTo({ padding: { top: 0, right: 0, left: pp.left, bottom: pp.bottom } });
     map.fitBounds([sw, ne], { padding: 24, duration: 350 });
   }, [props.resetSignal]);
 
@@ -317,7 +317,7 @@ export function MapCanvas(props: Props) {
     if (!map || !p) return;
     const pad = { top: 0, right: 0, left: p.left, bottom: p.bottom };
     if (map.loaded() && styleReadyRef.current) map.easeTo({ padding: pad, duration: 300 });
-    else map.setPadding(pad); // 로드 전엔 즉시 적용 (끊길 애니메이션이 없음)
+    else map.jumpTo({ padding: pad }); // 로드 전에도 jumpTo — move/render가 일어나 마커·타일이 그대로 멈추지 않는다 (setPadding은 이벤트 없음)
   }, [paddingKey]);
 
   return (
