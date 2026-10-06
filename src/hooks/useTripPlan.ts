@@ -3,16 +3,16 @@
 import { useMemo } from "react";
 import { REACH } from "@/lib/constants.ts";
 import { dijkstraFrom, timeToPoint } from "@/lib/graph.ts";
-import { computeGrid, contourFeatures } from "@/lib/iso.ts";
-import type { GraphModel, Place, Solution } from "@/lib/types.ts";
+import { computeGrid, contourRings } from "@/lib/iso.ts";
+import type { GeoFC, GeoPoint, GeoPolygon, GraphModel, IsoGrid, Place, Solution } from "@/lib/types.ts";
 
 export interface TripPlan {
   solution: Solution | null;
-  grid: ReturnType<typeof computeGrid> | null;
-  /** 등시선 닫힌 링들 (GeoJSON, 경도/위도) */
-  contours: ReturnType<typeof contourFeatures>;
-  /** 정류장 점 (properties.t = 도달 시간 분) */
-  stopsFC: ReturnType<typeof buildStopsFC>;
+  grid: IsoGrid | null;
+  /** 등시선 매끄러운 닫힌 링들 (GeoJSON Polygon, 경도/위도) */
+  contours: GeoFC<GeoPolygon, { t: number }>;
+  /** 정류장 점 (properties.t = 도달 시간 분, 음수 = 미도달) */
+  stopsFC: GeoFC<GeoPoint, { t: number; name: string }>;
   summary: {
     withinReach: number;
     totalStations: number;
@@ -21,19 +21,34 @@ export interface TripPlan {
   } | null;
 }
 
-function buildStopsFC(model: GraphModel, solution: Solution) {
+function buildContours(model: GraphModel, grid: IsoGrid, isos: number[]): GeoFC<GeoPolygon, { t: number }> {
+  const features: GeoFC<GeoPolygon, { t: number }>["features"] = [];
+  for (const t of isos) {
+    if (t <= 0) continue;
+    for (const ring of contourRings(model, grid, t)) {
+      features.push({ type: "Feature", geometry: { type: "Polygon", coordinates: [ring] }, properties: { t } });
+    }
+  }
+  return { type: "FeatureCollection", features };
+}
+
+function buildStopsFC(model: GraphModel, solution: Solution): GeoFC<GeoPoint, { t: number; name: string }> {
   return {
-    type: "FeatureCollection" as const,
+    type: "FeatureCollection",
     features: model.data.stops.map((s, i) => ({
       type: "Feature" as const,
-      geometry: { type: "Point" as const, coordinates: [s.lon, s.lat] },
-      // 미도달은 -1 (레이어에서 회색으로 표시), 유한값은 반올림해 페이로드 축소
-      properties: { t: Number.isFinite(solution.timeAt[i]!) ? Math.round(solution.timeAt[i]! * 10) / 10 : -1, name: s.n },
+      geometry: { type: "Point" as const, coordinates: [s.lon, s.lat] as [number, number] },
+      // 미도달은 -1 (레이어에서 회색), 유한값은 반올림해 페이로드 축소
+      properties: {
+        t: Number.isFinite(solution.timeAt[i]!) ? Math.round(solution.timeAt[i]! * 10) / 10 : -1,
+        name: s.n,
+      },
     })),
   };
 }
 
-const EMPTY_FC = { type: "FeatureCollection" as const, features: [] };
+const EMPTY_FC: GeoFC<GeoPolygon, { t: number }> = { type: "FeatureCollection", features: [] };
+const EMPTY_POINTS: GeoFC<GeoPoint, { t: number; name: string }> = { type: "FeatureCollection", features: [] };
 
 export function useTripPlan(
   model: GraphModel | null,
@@ -41,6 +56,7 @@ export function useTripPlan(
   bounds: { max: number; isos: number[] },
 ): TripPlan {
   const originKey = origin ? `${origin.point[0].toFixed(5)},${origin.point[1].toFixed(5)}` : null;
+
   const solution = useMemo(() => {
     if (!model || !origin) return null;
     return dijkstraFrom(model, origin.point);
@@ -54,11 +70,12 @@ export function useTripPlan(
 
   const contours = useMemo(() => {
     if (!model || !grid) return EMPTY_FC;
-    return contourFeatures(model, grid, bounds.isos);
+    return buildContours(model, grid, bounds.isos);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [model, grid, bounds.isos.join(",")]);
 
   const stopsFC = useMemo(() => {
-    if (!model || !solution) return EMPTY_FC;
+    if (!model || !solution) return EMPTY_POINTS;
     return buildStopsFC(model, solution);
   }, [model, solution]);
 

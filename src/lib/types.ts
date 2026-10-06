@@ -3,6 +3,12 @@
 /** [경도, 위도] — MapLibre/GeoJSON 좌표 순서와 동일. */
 export type LngLat = [number, number];
 
+/** MapLibre에 넘길 GeoJSON 조각 (@types/geojson 없이 자체 선언 — 의존성 줄이기) */
+export type GeoPoint = { type: "Point"; coordinates: [number, number] };
+export type GeoPolygon = { type: "Polygon"; coordinates: number[][][] };
+export type GeoLine = { type: "LineString"; coordinates: [number, number][] };
+export type GeoFC<G, P> = { type: "FeatureCollection"; features: Array<{ type: "Feature"; geometry: G; properties: P }> };
+
 /** network.json stops 항목. 승강장(platform) 단위 노드 하나 = 그래프 노드 하나. */
 export interface RawStop {
   /** 역 이름 (부역명 포함, 예: "시청", "을지로입구(명동)") */

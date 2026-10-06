@@ -8,8 +8,8 @@ export const ACCESS_RADIUS = 1200;
 export const REACH = 30;
 /** 등시선/색 상한 기본값 (분) */
 export const DEFAULT_MAX = 45;
-/** 등시선 격자 크기 (m) */
-export const GRID_CELL_M = 400;
+/** 등시선 격자 크기 (m) — 250 m 이하로 있어야 계단형 잘림이 눈에 띄지 않는다 (감독 지시) */
+export const GRID_CELL_M = 250;
 /** 정류장 공간 인덱스 버킷 크기 (m) */
 export const BUCKET_M = 800;
 
