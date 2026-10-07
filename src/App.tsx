@@ -194,7 +194,7 @@ export default function App() {
 
           {/* 데스크톱(lg 이상): 지도 위에 떠 있는 패널. 접으면 지도가 다시 전체 폭을 쓰고 클릭이 통과한다. */}
           <div
-            className={`absolute left-3 top-3 bottom-3 z-20 hidden w-80 flex-col gap-3 overflow-y-auto rounded-xl border border-border bg-background/95 p-3 shadow-sm backdrop-blur transition-[transform,opacity] duration-300 ease-out ${
+            className={`absolute left-3 top-3 bottom-3 z-20 hidden w-80 flex-col gap-3 overflow-y-auto [&>*]:shrink-0 rounded-xl border border-border bg-background/95 p-3 shadow-sm backdrop-blur transition-[transform,opacity] duration-300 ease-out ${
               panelOpen ? "lg:flex translate-x-0 opacity-100" : "pointer-events-none hidden -translate-x-[calc(100%+1rem)] opacity-0"
             }`}
           >
@@ -221,7 +221,7 @@ export default function App() {
                 <X className="size-4" />
               </Button>
             </div>
-            <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-3 pb-3 pt-0">
+            <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-3 pb-3 pt-0 [&>*]:shrink-0">
               {searchPanel}
               <IsochroneLegend focus={focus} />
             </div>

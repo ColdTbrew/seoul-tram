@@ -33,7 +33,7 @@ export function IsochroneLegend({ focus }: { focus: number }) {
         </div>
         <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
           <span className="size-2.5 shrink-0 rounded-sm" style={{ background: FAR, opacity: 0.45 }} />
-          회색 점: 선택한 시간 안에 못 가는 역 (색 없는 곳은 못 가는 지역)
+          회색 점: 선택한 시간 안에 못 가는 역
         </div>
         <p className="text-[11px] text-muted-foreground">
           진할수록 가깝습니다. 선택한 시간의 경계에 윤곽과 라벨을 붙입니다.
