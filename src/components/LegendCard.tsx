@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { BANDS, BAND_COLORS_DARK, BAND_COLORS_LIGHT, FAR_HEX_DARK, FAR_HEX_LIGHT } from "@/lib/constants.ts";
 import { useTheme } from "@/hooks/useTheme.tsx";
 
-/** 등시선 5밴드 + 도달 불가. 지금 강조(focus) 중인 밴드는 테두리로 표시한다. */
+/** 등시선 5밴드 + 도달 불가. 선택한 시간(focus) 이하 밴드만 진하게 표시하고(선택 밖은 옌게), 강조 밴드의 경계는 테두리로 표시한다. */
 export function IsochroneLegend({ focus }: { focus: number }) {
   const { resolved } = useTheme();
   const dark = resolved === "dark";
@@ -26,17 +26,17 @@ export function IsochroneLegend({ focus }: { focus: number }) {
                 className={`h-2.5 w-full rounded-sm ${
                   focus === t ? "ring-1 ring-foreground ring-offset-1 ring-offset-background" : ""
                 }`}
-                style={{ background: C[i] }}
+                style={{ background: C[i], opacity: t <= focus ? 1 : 0.25 }}
               />
             </span>
           ))}
         </div>
         <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
           <span className="size-2.5 shrink-0 rounded-sm" style={{ background: FAR, opacity: 0.45 }} />
-          회색: 90분 넘게 걸리거나 못 가는 곳
+          회색 점: 선택한 시간 안에 못 가는 역 (색 없는 곳은 못 가는 지역)
         </div>
         <p className="text-[11px] text-muted-foreground">
-          진할수록 가깝습니다 — 강조한 범위에만 윤곽과 라벨을 붙입니다.
+          진할수록 가깝습니다. 선택한 시간의 경계에 윤곽과 라벨을 붙입니다.
         </p>
       </CardContent>
     </Card>

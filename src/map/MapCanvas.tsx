@@ -15,7 +15,7 @@ import { fmtTime } from "@/lib/format.ts";
 import { nearestStops, timeToPoint, toLL } from "@/lib/graph.ts";
 import type { GeoFC, GeoMultiPolygon, GeoPoint, GraphModel, IsoGrid, LngLat, Route, Solution } from "@/lib/types.ts";
 import { basemapUrl } from "./basemap.ts";
-import { paintIso, paintLines, paintRoute, paintStops, resetCustomLayers, isoFillOpacity, isoLineOpacity } from "./layers.ts";
+import { paintIso, paintLines, paintRoute, paintStops, resetCustomLayers, isoFillOpacity, isoLineOpacity, applyFocus } from "./layers.ts";
 import type { Resolved } from "@/hooks/useTheme.tsx";
 
 export type MapPick = { kind: "stop"; ll: LngLat; name: string } | { kind: "point"; ll: LngLat };
@@ -25,7 +25,7 @@ interface Props {
   resolved: Resolved;
   solution: Solution | null;
   grid: IsoGrid | null;
-  /** 강조 중인 밴드 (분). 등시선 5개는 항상 다 그려지고, 이 밴드만 윤곽/라벨로 강조한다. */
+  /** 선택한 시간(분). 이 값 이하 밴드만 칠하고, 그 경계에 윤곽·라벨을 붙인다. */
   focus: number;
   contours: GeoFC<GeoMultiPolygon, { t: number; band: number }>;
   stopsFC: GeoFC<GeoPoint, { t: number; name: string }>;
@@ -85,7 +85,7 @@ export function MapCanvas(props: Props) {
       resetCustomLayers(map);
     paintIso(map, p.contours, p.focus, p.resolved === "dark");
     paintLines(map, p.model, p.resolved === "dark");
-    paintStops(map, p.stopsFC, p.resolved === "dark");
+    paintStops(map, p.stopsFC, p.focus, p.resolved === "dark");
     if (p.route) paintRoute(map, p.model, p.route, p.resolved === "dark");
 
     const dark = p.resolved === "dark";
@@ -290,7 +290,18 @@ export function MapCanvas(props: Props) {
   // 3) 데이터/설정 변경 → 전체 재페인트 (스타일 로딩이 진행 중이면 styledata/style.load/idle 체인이 그린다)
   useEffect(() => {
     repaintRef.current();
-  }, [props.grid, props.focus, props.contours, props.stopsFC, props.route, props.origin, props.dest]);
+  }, [props.grid, props.contours, props.stopsFC, props.route, props.origin, props.dest]);
+
+  // focus 만 바뀔 때는 레이어를 다시 만들지 않는다 (필터·페인트만). 스타일 로딩 중이면 다음 재페인트가 현재 focus 로 그린다.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !styleReadyRef.current) return;
+    try {
+      applyFocus(map, props.focus, propsRef.current.resolved === "dark");
+    } catch {
+      /* 재페인트 체인이 처리 */
+    }
+  }, [props.focus]);
 
   // 4) 초기화 버튼 → 전체 등시선 영역이 보이게 다시 맞춤
   useEffect(() => {

@@ -6,7 +6,7 @@ export const WALK_SPEED = 75;
 export const ACCESS_RADIUS = 1200;
 /** 등시선 격자 크기 (m) — 150 m 이하로 있어야 계단형 잘림이 눈에 띄지 않는다. */
 export const GRID_CELL_M = 150;
-/** 등시선 밴드 (항상 전부 그린다): ≤15 / ≤30 / ≤45 / ≤60 / ≤90분 */
+/** 등시선 밴드 (5개 밴드를 모두 계산해 두고, 화면에는 선택한 시간 이하만 칠한다 — focus 변경 = 필터만): ≤15 / ≤30 / ≤45 / ≤60 / ≤90분 */
 export const BANDS: number[] = [15, 30, 45, 60, 90];
 /** 격자·블러의 시간 상한 (분). 등치선 값 뒤집기(ISO_CAP − t)와 미도달 표현에 쓴다. */
 export const ISO_CAP = 120;

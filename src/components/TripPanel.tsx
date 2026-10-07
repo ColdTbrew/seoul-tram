@@ -77,7 +77,7 @@ export function TripPanel(p: Props) {
         </CardHeader>
         <CardContent className="flex flex-wrap gap-1.5">
           <p className="w-full pb-0.5 text-[11px] text-muted-foreground">
-            5개 시간 범위를 항상 그립니다. 고른 범위만 윤곽과 라벨로 강조합니다.
+            선택한 시간 안에 갈 수 있는 곳만 칠합니다.
           </p>
           {BANDS.map((t) => (
             <button
@@ -95,7 +95,7 @@ export function TripPanel(p: Props) {
           <div className="flex w-full items-center gap-3 pt-1">
             <Slider
               className="flex-1"
-              aria-label="강조할 시간 범위"
+              aria-label="시간 범위"
               min={0}
               max={BANDS.length - 1}
               step={1}

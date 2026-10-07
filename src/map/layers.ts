@@ -30,9 +30,9 @@ export function isoLineOpacity(dark: boolean, dim = false): number {
   return dim ? half(base) : base;
 }
 
-/** 등시선 5밴드(15/30/45/60/90분)를 아래에서 위로 쌓는다: fill(중첩될수록 진함) → 얇은 윤곽 →
- * 강조 밴드 → 경계 라벨. 링은 스무딩된 닫힌 MultiPolygon(구멍 포함 가능)이고 features는 T 큰 순서.
- * fill은 밴드별로 옅게(바깥이 가장 옅게) 깔리고, 라벨은 강조 중인 밴드 경계에만 붙는다. */
+/** 등시선 5밴드(15/30/45/60/90분) 중 **선택한 시간 이하 밴드만** 아래에서 위로 쌓아 칠한다 (그 밖은 미채색 — 베이스맵이 빔):
+ * fill(중첩될수록 진함) → 얇은 윤곽 → 강조 밴드 → 경계 라벨. 링은 스무딩된 닫힌 MultiPolygon(구멍 포함 가능)이고 features는 T 큰 순서.
+ * fill은 밴드별로 옅게(바깥이 가장 옅게) 깔리고, 라벨은 강조 중인 밴드(focus) 경계에만 붙는다. */
 export function paintIso(
   map: MLMap,
   fc: GeoFC<GeoMultiPolygon, { t: number; band: number }>,
@@ -51,6 +51,7 @@ export function paintIso(
     id: "iso-fill",
     type: "fill" as const,
     source: "iso",
+    filter: ["<=", ["get", "t"], focus],
     paint: {
       "fill-color": bandColor,
       "fill-opacity": isoFillOpacity(dark),
@@ -61,6 +62,7 @@ export function paintIso(
     id: "iso-line",
     type: "line" as const,
     source: "iso",
+    filter: ["<=", ["get", "t"], focus],
     paint: {
       "line-color": bandColor,
       "line-width": 1.25,
@@ -134,15 +136,22 @@ export function paintLines(map: MLMap, model: GraphModel, dark: boolean) {
 
 /** 정류장 점: 원(circle) 레이어, 색 = 도달 시간 램프(음수/초과 = 회색).
  * 반경은 줌 10:2.5 → 12:4 → 14:6 보간 + 1px 흰 테두리 — 노선 선층 바로 위에 떠서 구분된다. */
-/** 정류장 점: 원(circle) 레이어, 색 = 밴드와 같은 계단식 색 (음수/90분 초과 = 회색).
+/** 정류장 점: 원(circle) 레이어, 색 = 밴드와 같은 계단식 색 (음수/선택 시간 초과 = 회색, 선택 시간 밖은 옅게 0.35).
  * 반경은 줌 10:2.5 → 12:4 → 14:6 보간 + 1px 흰 테두리 — 노선 선층 바로 위에 떠서 구분된다. */
-export function paintStops(map: MLMap, fc: GeoFC<GeoPoint, { t: number; name: string }>, dark: boolean) {
-  if (!fc.features.length) return;
+function stopColor(focus: number, dark: boolean): ExpressionSpecification {
   const C = dark ? BAND_COLORS_DARK : BAND_COLORS_LIGHT;
   const FAR = dark ? FAR_HEX_DARK : FAR_HEX_LIGHT;
-  const steps: unknown[] = ["case", ["<", ["get", "t"], 0], FAR];
+  const steps: unknown[] = ["case", ["<", ["get", "t"], 0], FAR, [">", ["get", "t"], focus], FAR];
   for (let i = 0; i < BANDS.length; i += 1) steps.push(["<=", ["get", "t"], BANDS[i]], C[i]);
   steps.push(FAR);
+  return steps as unknown as ExpressionSpecification;
+}
+function stopOpacity(focus: number): ExpressionSpecification {
+  return ["case", ["all", [">=", ["get", "t"], 0], ["<=", ["get", "t"], focus]], 0.9, 0.35] as unknown as ExpressionSpecification;
+}
+
+export function paintStops(map: MLMap, fc: GeoFC<GeoPoint, { t: number; name: string }>, focus: number, dark: boolean) {
+  if (!fc.features.length) return;
   map.addSource("stations", { type: "geojson", data: fc as never } as never);
   map.addLayer({
     id: "stations",
@@ -150,13 +159,33 @@ export function paintStops(map: MLMap, fc: GeoFC<GeoPoint, { t: number; name: st
     source: "stations",
     paint: {
       "circle-radius": ["interpolate", ["linear"], ["zoom"], 10, 2.5, 12, 4, 14, 6] as never,
-      "circle-color": steps,
-      "circle-opacity": 0.85,
+      "circle-color": stopColor(focus, dark),
+      "circle-opacity": stopOpacity(focus),
       "circle-stroke-width": 1,
       "circle-stroke-color": "#ffffff",
       "circle-stroke-opacity": dark ? 0.25 : 0.9,
     },
   } as never);
+}
+
+/** focus(분)만 바뀔 때: 소스/레이어를 다시 만들지 않고 필터·페인트만 갈아끼운다. */
+export function applyFocus(map: MLMap, focus: number, dark: boolean) {
+  const C = dark ? BAND_COLORS_DARK : BAND_COLORS_LIGHT;
+  const fb = BANDS.indexOf(focus);
+  if (map.getLayer("iso-fill")) map.setFilter("iso-fill", ["<=", ["get", "t"], focus]);
+  if (map.getLayer("iso-line")) map.setFilter("iso-line", ["<=", ["get", "t"], focus]);
+  if (map.getLayer("iso-focus")) {
+    map.setFilter("iso-focus", ["==", ["get", "t"], focus]);
+    map.setPaintProperty("iso-focus", "line-color", C[fb >= 0 ? fb : 0]);
+  }
+  if (map.getLayer("iso-label")) {
+    map.setFilter("iso-label", ["==", ["get", "t"], focus]);
+    map.setPaintProperty("iso-label", "text-color", dark ? (focus === 15 ? "#fde725" : "#e5e7eb") : "#7a0177");
+  }
+  if (map.getLayer("stations")) {
+    map.setPaintProperty("stations", "circle-color", stopColor(focus, dark));
+    map.setPaintProperty("stations", "circle-opacity", stopOpacity(focus));
+  }
 }
 
 /** 경로 하이라이트 (가장 마지막에 추가 = 최상단, minzoom 없음):

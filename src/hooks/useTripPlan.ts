@@ -48,7 +48,7 @@ export function useTripPlan(model: GraphModel | null, origin: Place | null, focu
     // originKey로 원점이 실제로 바뀌었을 때만 재계산 (Place 객체 동일성 의존 제거)
   }, [model, originKey]);
 
-  // 등시선 5개 밴드는 항상 전부 그린다 → 격자와 링은 출발지가 바뀔 때만 함께 다시 계산한다.
+  // 등시선 5개 밴드를 모두 계산해 두고, 화면에는 선택한 시간 이하만 칠한다 (focus 변경 = 필터만) → 격자와 링은 출발지가 바뀔 때만 함께 다시 계산한다.
   const iso = useMemo(() => {
     if (!model || !solution || !origin) return { grid: null as IsoGrid | null, contours: EMPTY_FC };
     const t0 = performance.now();

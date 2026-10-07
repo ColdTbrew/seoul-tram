@@ -16,7 +16,7 @@ import { defaultOrigin, resolveQuery } from "./lib/search.ts";
 import { routeTo } from "./lib/graph.ts";
 import type { Place } from "./lib/types.ts";
 
-const DEFAULT_FOCUS = 30;
+const DEFAULT_FOCUS = 60;
 /** 패널 열린/닫힘 상태를 탭 전환·새로고침을 넘어 유지 (기본 열림). */
 const PANEL_KEY = "seoul-tram:panel";
 type Tab = "iso" | "rank" | "about";
