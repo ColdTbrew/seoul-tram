@@ -56,7 +56,7 @@ export function TripPanel(p: Props) {
         <CardContent className="space-y-2.5">
           <StationSearch
             label="출발"
-            placeholder="출발역 또는 좌표"
+            placeholder="출발역 선택"
             data={p.model.data}
             value={p.origin}
             onPick={p.onOrigin}
@@ -139,7 +139,7 @@ export function TripPanel(p: Props) {
                 return (
                   <div key={i} className="flex items-baseline justify-between gap-2">
                     <span className="text-muted-foreground">도보</span>
-                    <span className="font-mono">{fmtTime(s.minutes)}</span>
+                    <span className="font-mono shrink-0 whitespace-nowrap">{fmtTime(s.minutes)}</span>
                   </div>
                 );
               }
@@ -148,18 +148,18 @@ export function TripPanel(p: Props) {
               const to = p.model.data.stops[s.to]?.n ?? "?";
               return (
                 <div key={i} className="flex items-baseline justify-between gap-2">
-                  <span className="flex items-baseline gap-1.5">
+                  <span className="flex min-w-0 items-baseline gap-1.5">
                     <span className="size-2 translate-y-px shrink-0 rounded-full" style={{ background: line?.color }} />
                     {line?.name ?? "이동"} · {from} → {to}
                   </span>
-                  <span className="font-mono">{fmtTime(s.minutes)}</span>
+                  <span className="font-mono shrink-0 whitespace-nowrap">{fmtTime(s.minutes)}</span>
                 </div>
               );
             })}
             {p.route && (
               <div className="flex items-baseline justify-between border-t border-border/60 pt-1.5 font-mono text-[11px]">
                 <span>총</span>
-                <span>{fmtTime(p.route.total)}</span>
+                <span className="shrink-0 whitespace-nowrap">{fmtTime(p.route.total)}</span>
               </div>
             )}
           </CardContent>
