@@ -34,7 +34,8 @@ A static isochrone map of the Seoul metro — pick an origin and see how far (an
 - **커서 위치의 걸리는 시간 표시** — 가까운 승강장 위에 마우스를 올리면 커서가 손가락으로 바뀌며 `역 이름 · 시간 (도보 포함)` 툴팁이 뜬다 (판정 반경은 지도를 축소하면 넓어지고 확대하면 좁아진다 — 최소 120 m)
 - **URL 공유** — `?from=시청&to=강남`처럼 주소줄을 복사하면 열자마자 같은 뷰가 보이고, 앱 안에서 출발/도착을 바꾸면 주소줄이 따라 바뀐다
 - **역 순위 탭** — 상단의 "N분 안에 갈 수 있는 역 N곳"은 지도와 같은 실시간 계산(출발지를 바꾸면 함께 바뀐다), 그 아래 배차간격·정차 횟수·가장 긴 완주·가장 먼 역 표는 Python에서 미리 계산 — 승강장 사이만 세는 별개의 계산이라 문 앞까지 도보를 포함하지 않는다
-- **라이트 / 다크 / 시스템** 테마 — 시스템 설정을 따라가고 선택을 localStorage에 저장, 두 테마에서 등시선 램프를 따로 맞췄다 (라이트 ColorBrewer YlOrRd · 다크 Viridis)
+- **라이트 / 다크** 테마 — 처음엔 시스템 설정을 따르고, 헤더 오른쪽 해/달 버튼으로 바꾸면 localStorage에 저장한다. 두 테마에서 등시선 램프를 따로 맞췄다 (라이트 ColorBrewer YlOrRd · 다크 Viridis)
+- 경로를 고르면 출발·도착이 화면 가장자리에 붙지 않도록 패널을 뺀 남은 영역의 18%를 여백으로 두고 맞춘다 (최대 줌 14). 시간 슬라이더는 마우스·터치로 끌 수 있고, 끄는 동안 지도나 시트는 따라 움직이지 않는다.
 - **접이식 패널** — 지도는 항상 전체 폭이고 패널은 위에 뜬다 (데스크톱 왼쪽 · 모바일 아래). 지도를 움직이면 패널이 자동으로 접혀 지도가 전체를 차지하고, 열기 버튼으로 다시 편다
 - 서버·데이터베이스·API 키 없음 — 정적 파일과 JSON 두 개만 서빙한다
 
@@ -153,22 +154,24 @@ Grok Bot (Sparky) advised pi, verified the UI with Playwright screenshots, and h
 | --- | --- |
 | 모델 | Qwen3.8-Flash-Next (TensorFold on DGX Spark), thinking = medium |
 | 에이전트 | pi coding agent (herdr session `seoul-tram`) |
-| 측정 구간 (KST) | 2026-10-06 20:49 – 2026-10-07 08:17 |
-| 요청 수 | 668 |
-| 생성 토큰 (completion) | 1,119,682 |
-| 프롬프트 토큰 | 80,967,957 (대부분 prefix-cache hit) |
-| decode tok/s (요청당) | median 57.2 / mean 58.8 / p90 72.3 / max 95.6 / min 40.5 |
+| 측정 구간 (KST) | 2026-10-06 20:49 – 2026-10-07 09:04 |
+| 요청 수 | 697 |
+| 생성 토큰 (completion) | 1,145,448 |
+| 프롬프트 토큰 | 87,634,993 (대부분 prefix-cache hit) |
+| decode tok/s (요청당) | median 57.2 / mean 58.8 / p90 72.3 / max 95.6 / min 40.5 (08:17까지 집계) |
 | token-weighted decode | 55.0 tok/s |
 | MTP acceptance | 72.8% |
 
 Round 2만 (등시선·패널·문구·슬라이더, 2026-10-07 07:01–08:17): 요청 186, 생성 169,439 토큰, median 59.2 tok/s, MTP 75.2%.
+
+Round 2 수정 배치 (슬라이더 드래그·테마 버튼·경로 여백·모바일 padding, 2026-10-07 08:37–09:04): 요청 29, 생성 25,766 토큰, 프롬프트 6,667,036 토큰, token-weighted decode 58.3 tok/s, MTP 79.3%.
 
 ### 감독 · Supervisor (Grok Bot / 스파키)
 Grok Bot 쪽 **정확한 토큰 수는 미수집**입니다. 코딩 토큰은 위 표가 전부입니다.
 | 항목 | 값 |
 | --- | --- |
 | 역할 | 지시 메모 · Playwright 시각 검증 · 스크린샷 · GitHub Pages 배포 |
-| 감독 라운드 | 약 10회 중간/최종 보고 |
+| 감독 라운드 | 약 11회 중간/최종 보고 |
 | 프로젝트 wall-clock (KST) | 2026-10-06 저녁 – 2026-10-07 오전 (약 12시간, 중단·재개 포함) |
 
 ### 프로젝트 규모 · Project stats
