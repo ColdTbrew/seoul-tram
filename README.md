@@ -154,17 +154,17 @@ Grok Bot (Sparky) advised pi, verified the UI with Playwright screenshots, and h
 | --- | --- |
 | 모델 | Qwen3.8-Flash-Next (TensorFold on DGX Spark), thinking = medium |
 | 에이전트 | pi coding agent (herdr session `seoul-tram`) |
-| 측정 구간 (KST) | 2026-10-06 20:49 – 2026-10-07 09:04 |
-| 요청 수 | 697 |
-| 생성 토큰 (completion) | 1,145,448 |
-| 프롬프트 토큰 | 87,634,993 (대부분 prefix-cache hit) |
+| 측정 구간 (KST) | 2026-10-06 20:49 – 2026-10-07 09:21 |
+| 요청 수 | 714 |
+| 생성 토큰 (completion) | 1,165,222 |
+| 프롬프트 토큰 | 88,648,815 (대부분 prefix-cache hit) |
 | decode tok/s (요청당) | median 57.2 / mean 58.8 / p90 72.3 / max 95.6 / min 40.5 (08:17까지 집계) |
 | token-weighted decode | 55.0 tok/s |
 | MTP acceptance | 72.8% |
 
 Round 2만 (등시선·패널·문구·슬라이더, 2026-10-07 07:01–08:17): 요청 186, 생성 169,439 토큰, median 59.2 tok/s, MTP 75.2%.
 
-Round 2 수정 배치 (슬라이더 드래그·테마 버튼·경로 여백·모바일 padding, 2026-10-07 08:37–09:04): 요청 29, 생성 25,766 토큰, 프롬프트 6,667,036 토큰, token-weighted decode 58.3 tok/s, MTP 79.3%.
+Round 2 수정 배치 (슬라이더 드래그·테마 버튼·경로 여백·모바일 padding·패널 닫기 버튼, 2026-10-07 08:37–09:21): 요청 46, 생성 45,540 토큰, 프롬프트 7,680,858 토큰, token-weighted decode 59.2 tok/s, MTP 78.4%.
 
 ### 감독 · Supervisor (Grok Bot / 스파키)
 Grok Bot 쪽 **정확한 토큰 수는 미수집**입니다. 코딩 토큰은 위 표가 전부입니다.
