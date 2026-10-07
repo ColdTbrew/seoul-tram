@@ -1,5 +1,5 @@
 /** 출발/도착 검색, 등시선 밴드 강조, 요약 배지, 경로 카드 — 사이드바의 내용물 (레이아웃은 App이 담당). */
-import { ArrowDownUp, RotateCcw, X } from "lucide-react";
+import { ArrowDownUp, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Slider } from "@/components/ui/slider";
@@ -26,8 +26,6 @@ interface Props {
     farthest: { name: string; minutes: number } | null;
   } | null;
   route: Route | null;
-  /** 패널을 닫을 때 (전체 폭 지도가 다시 보이게). 없으면 닫기 버튼을 그리지 않는다. */
-  onClose?: () => void;
 }
 
 export function TripPanel(p: Props) {
@@ -52,18 +50,6 @@ export function TripPanel(p: Props) {
                 <RotateCcw className="size-3.5" />
                 초기화
               </Button>
-              {p.onClose && (
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  className="size-7"
-                  aria-label="패널 닫기"
-                  title="패널 닫기"
-                  onClick={p.onClose}
-                >
-                  <X className="size-3.5" />
-                </Button>
-              )}
             </div>
           </div>
         </CardHeader>

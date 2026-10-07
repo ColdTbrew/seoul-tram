@@ -1,7 +1,7 @@
 /** App 셸: 탭(지도/역 순위/정보) + URL 상태(?from=&to=) + 전체 폭 지도 위에 떠 있는 접이식 패널.
  * 순수 파생(Dijkstra/격자/링)은 useTripPlan, 지도 명령형 상호작용은 MapCanvas — 여기는 배선만. */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { SlidersHorizontal } from "lucide-react";
+import { SlidersHorizontal, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { MapCanvas, type MapPick } from "./map/MapCanvas.tsx";
 import { TripPanel } from "./components/TripPanel.tsx";
@@ -148,7 +148,6 @@ export default function App() {
       onFocus={setFocus}
       summary={plan.summary}
       route={route}
-      onClose={closePanel}
     />
   );
 
@@ -199,6 +198,12 @@ export default function App() {
               panelOpen ? "lg:flex translate-x-0 opacity-100" : "pointer-events-none hidden -translate-x-[calc(100%+1rem)] opacity-0"
             }`}
           >
+            <div className="sticky top-0 z-10 -mx-1 -mt-1 flex items-center justify-between bg-background/95 px-1 pb-1 backdrop-blur">
+              <span className="text-xs font-medium text-muted-foreground">이동·시간 설정</span>
+              <Button variant="ghost" size="icon" className="size-7 rounded-full" aria-label="패널 닫기" title="패널 닫기" onClick={closePanel}>
+                <X className="size-4" />
+              </Button>
+            </div>
             {searchPanel}
             <IsochroneLegend focus={focus} />
             <LineLegend lines={model.data.lines} />
@@ -210,8 +215,13 @@ export default function App() {
               panelOpen ? "translate-y-0" : "pointer-events-none translate-y-full"
             }`}
           >
-            <div className="mx-auto mt-2 h-1 w-10 shrink-0 rounded-full bg-muted-foreground/30" />
-            <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-3 pb-3 pt-2">
+            <div className="relative flex h-9 shrink-0 items-center justify-center">
+              <div className="h-1 w-10 rounded-full bg-muted-foreground/30" />
+              <Button variant="ghost" size="icon" className="absolute right-2 top-1 size-7 rounded-full" aria-label="패널 닫기" title="패널 닫기" onClick={closePanel}>
+                <X className="size-4" />
+              </Button>
+            </div>
+            <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-3 pb-3 pt-0">
               {searchPanel}
               <IsochroneLegend focus={focus} />
             </div>
